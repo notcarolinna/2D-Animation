@@ -1,7 +1,7 @@
 #include "Reader.hpp"
 
 Reader::Reader(const std::string& filename)
-    : filename(filename), scale(0) {}
+    : filename(filename), scale(0), entity() {}
 
 Reader::Reader(){}
 
@@ -9,12 +9,8 @@ int Reader::getScale() const {
     return this->scale;
 }
 
-std::vector<coordinates> Reader::getCoordinatesList() const {
-    return this->coordinatesList;
-}
-
-std::map<int, std::pair<int, std::vector<coordinates>>> Reader::getAllEntities() const {
-    return this->allEntities;
+const Entity& Reader::getEntity() const {
+    return this->entity;
 }
 
 void Reader::readFile() {
@@ -27,8 +23,10 @@ void Reader::readFile() {
 
     std::string firstLine;
     std::getline(file, firstLine);
+
     if (!firstLine.empty() && firstLine.front() == '[' && firstLine.back() == ']') {
-        scale = std::stoi(firstLine.substr(1, firstLine.size() - 2));
+        std::string scaleStr = firstLine.substr(1, firstLine.size() - 2);
+        scale = std::stoi(scaleStr);
     }
 
     std::string line;
@@ -38,18 +36,29 @@ void Reader::readFile() {
         int framesCount;
         iss >> framesCount;
 
-        std::vector<coordinates> coordinatesList;
+        std::vector<Coordinates> coords;
         char c;
         while (iss >> c) {
             if (c == '(') {
-                coordinates coord;
+                float x, y, frame;
                 char comma1, comma2, closeParen;
-                iss >> coord.x >> comma1 >> coord.y >> comma2 >> coord.frame >> closeParen;
+                iss >> x >> comma1 >> y >> comma2 >> frame >> closeParen;
                 if (comma1 == ',' && comma2 == ',' && closeParen == ')') {
-                    coordinatesList.push_back(coord);
+                    coords.push_back({x, y, frame});
                 }
             }
         }
-        allEntities[entityId++] = std::make_pair(framesCount, coordinatesList);
+    entity.addEntity(coords, framesCount);
+        ++entityId;
     }
 }
+
+/*
+Para cada linha lida, eu preciso:
+1. Se for a primeira linha, pegar o valor do scale (ignorando os colchetes)
+2. Para o restante do arquivo, eu preciso:
+    2.1 Chamar a função getFramesCount da classe Entity para pegar o número de frames da entidade atual
+    2.2 Chamar a função addEntity da classe Entity para adicionar os pontos da entidade atual
+     *Deve-se ignorar os () e as vírgulas
+3. Incrementar o entityId para a próxima entidade
+*/
