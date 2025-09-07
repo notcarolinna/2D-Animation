@@ -3,9 +3,7 @@
 Reader::Reader(const std::string& filename)
     : filename(filename), scale(0) {}
 
-Reader::Reader(){
-    scale = 0;
-}
+Reader::Reader(){}
 
 int Reader::getScale() const {
     return this->scale;
@@ -13,10 +11,6 @@ int Reader::getScale() const {
 
 std::vector<coordinates> Reader::getCoordinatesList() const {
     return this->coordinatesList;
-}
-
-std::pair<int, std::vector<coordinates>> Reader::getEntity() const {
-    return this->entity;
 }
 
 std::map<int, std::pair<int, std::vector<coordinates>>> Reader::getAllEntities() const {
@@ -36,7 +30,6 @@ void Reader::readFile() {
     if (!firstLine.empty() && firstLine.front() == '[' && firstLine.back() == ']') {
         scale = std::stoi(firstLine.substr(1, firstLine.size() - 2));
     }
-
 
     std::string line;
     while (std::getline(file, line)) {

@@ -5,7 +5,6 @@
 #include <sstream>
 #include <map>
 #include <vector>
-#include <iostream>
 
 /*
 O que eu preciso ter: 
@@ -27,7 +26,6 @@ class Reader {
         std::string filename;
         int scale;
         std::vector<coordinates> coordinatesList;
-        std::pair<int, std::vector<coordinates>> entity; 
         std::map<int, std::pair<int, std::vector<coordinates>>> allEntities;
 
     public:
@@ -35,7 +33,6 @@ class Reader {
         Reader();
         int getScale() const;
         std::vector<coordinates> getCoordinatesList() const;
-        std::pair<int, std::vector<coordinates>> getEntity() const;
         std::map<int, std::pair<int, std::vector<coordinates>>> getAllEntities() const;
         void readFile();
 };
