@@ -1,3 +1,67 @@
-1. Implementar os métodos setScale e getScale na classe SRU.
-2. Ajustar a classe Entity para que ela possa calcular e retornar sua própria bounding box. 
-3. Com as bounding boxes das entidades, calcular a bounding box do mundo na classe SRU.
+1. Classe Entity
+Responsável por representar um objeto na tela (posição, cor, raio, frames, desenho, atualização).
+Atributos:
+id
+x, y
+radius
+color, alpha
+closest (distância até entidade mais próxima)
+closestEntity (ponteiro para outra Entity)
+frameInfo (vetor de tuplas <x, y, frame>)
+index
+
+Métodos principais
+update(int w, int h)
+normalizeCoords(...)
+draw()
+getNextFrame()
+
+=================================================================
+
+2. Classe Player : public Entity
+Herdaria de Entity, mas com comportamento especial para movimentação por teclado.
+Métodos adicionais:
+move(const std::map<char, bool>& keys)
+
+=================================================================
+
+3. Classe World
+Responsável pelo estado global e pelo controle das entidades.
+Atributos:
+std::vector<Entity> entities
+Player player
+int frame, frameLimit
+int width, height
+float maxDist
+std::map<char, bool> keys
+bgColor
+
+Métodos principais:
+readDataset(std::string filename)
+update()
+calculateProximity(Entity&)
+handleProximity(Entity&, float dist)
+normalize(float dist)
+drawClosestLines()
+printDistance(const Entity&)
+
+=================================================================
+
+4. Classe Renderer
+Poderia ser opcional, mas ajudaria a separar a parte gráfica (OpenGL/GLUT) do resto.
+Ela chamaria:
+entity.draw()
+world.drawClosestLines()
+world.printDistance(entity)
+
+=================================================================
+
+5. Classe Application (ou Game)
+
+Camada que inicializa GLUT/OpenGL e faz o loop principal.
+Atributos:
+World world
+Métodos:
+init()
+run()
+callbacks (idle, display, keyDown, keyUp) → que encaminham chamadas para world.
