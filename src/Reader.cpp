@@ -1,12 +1,12 @@
 #include "Reader.hpp"
 
 Reader::Reader(const std::string& filename)
-    : filename(filename), scale(0), entity() {}
+    : filename(filename), entity() {}
 
 Reader::Reader(){}
 
 int Reader::getScale() const {
-    return this->scale;
+    return sru.getScale(); 
 }
 
 const Entity& Reader::getEntity() const {
@@ -26,7 +26,7 @@ void Reader::readFile() {
 
     if (!firstLine.empty() && firstLine.front() == '[' && firstLine.back() == ']') {
         std::string scaleStr = firstLine.substr(1, firstLine.size() - 2);
-        scale = std::stoi(scaleStr);
+        sru.setScale(std::stoi(scaleStr)); // Armazene o scale na SRU
     }
 
     std::string line;
@@ -41,14 +41,14 @@ void Reader::readFile() {
         while (iss >> p1) {
             if (p1 == '(') {
                 float x, y, frame;
-                char c1, c2, p2;
-                iss >> x >> c1 >> y >> c2 >> frame >> p2;
-                if (c1 == ',' && c2 == ',' && p2 == ')') {
+                char v1, v2, p2;
+                iss >> x >> v1 >> y >> v2 >> frame >> p2;
+                if (v1 == ',' && v2 == ',' && p2 == ')') {
                     coords.push_back({x, y, frame});
                 }
             }
         }
-    entity.addEntity(coords, framesCount);
+        entity.addEntity(coords, framesCount);
         ++entityId;
     }
 }

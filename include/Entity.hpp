@@ -1,30 +1,21 @@
 #pragma once
 
+#include "SRU.hpp"
 #include <vector>
 
 struct Coordinates {
-    float x;
-    float y;
-    float frame;
-};
-
-struct BoundingBox {
-    float xMin;
-    float yMin;
-    float xMax;
-    float yMax;
+    int x, y, frame;
 };
 
 class Entity {
-    private:
+private:
     std::vector<std::vector<Coordinates>> entities;
-    std::vector<int> framesCount;
+    std::vector<int> framesCount; 
 
-    public:
+public:
     Entity();
     void addEntity(const std::vector<Coordinates>& coords, int framesCount);
     const std::vector<std::vector<Coordinates>>& getEntities() const;
     const std::vector<int>& getFramesCount() const;
     BoundingBox calculateBoundingBox(int entityId) const;
-    BoundingBox getGlobalBoundingBox() const;
-};
+}; 

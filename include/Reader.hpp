@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Entity.hpp"
+#include "SRU.hpp"
 
 #include <string>
 #include <fstream>
@@ -10,7 +11,7 @@
 class Reader {
 private:
     std::string filename;
-    int scale;
+    SRU sru;
     Entity entity;
 
 public:
@@ -19,6 +20,5 @@ public:
     int getScale() const;
     const Entity& getEntity() const;
     void readFile();
-
 };
 
