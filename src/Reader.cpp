@@ -37,13 +37,13 @@ void Reader::readFile() {
         iss >> framesCount;
 
         std::vector<Coordinates> coords;
-        char c;
-        while (iss >> c) {
-            if (c == '(') {
+        char p1;
+        while (iss >> p1) {
+            if (p1 == '(') {
                 float x, y, frame;
-                char comma1, comma2, closeParen;
-                iss >> x >> comma1 >> y >> comma2 >> frame >> closeParen;
-                if (comma1 == ',' && comma2 == ',' && closeParen == ')') {
+                char c1, c2, p2;
+                iss >> x >> c1 >> y >> c2 >> frame >> p2;
+                if (c1 == ',' && c2 == ',' && p2 == ')') {
                     coords.push_back({x, y, frame});
                 }
             }
@@ -52,13 +52,3 @@ void Reader::readFile() {
         ++entityId;
     }
 }
-
-/*
-Para cada linha lida, eu preciso:
-1. Se for a primeira linha, pegar o valor do scale (ignorando os colchetes)
-2. Para o restante do arquivo, eu preciso:
-    2.1 Chamar a função getFramesCount da classe Entity para pegar o número de frames da entidade atual
-    2.2 Chamar a função addEntity da classe Entity para adicionar os pontos da entidade atual
-     *Deve-se ignorar os () e as vírgulas
-3. Incrementar o entityId para a próxima entidade
-*/

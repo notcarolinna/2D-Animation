@@ -1,0 +1,40 @@
+Scale: 139
+
+EntityId: 0, FramesCount: 400
+  Coord 0: x=1413, y=150, frame=1
+  Coord 1: x=1813, y=998, frame=2
+  Coord 2: x=1113, y=574, frame=3
+  BoundingBox: xMin=1113, xMax=1813, yMin=150, yMax=998
+
+
+EntityId: 1, FramesCount: 203
+  Coord 0: x=1596, y=676, frame=1
+  Coord 1: x=1596, y=676, frame=2
+  Coord 2: x=1596, y=676, frame=3
+  Coord 3: x=1595, y=675, frame=4
+  Coord 4: x=8750, y=675, frame=5
+  BoundingBox: xMin=1595, xMax=8750, yMin=675, yMax=676
+
+
+EntityId: 2, FramesCount: 388
+  Coord 0: x=1591, y=375, frame=1
+  Coord 1: x=1591, y=375, frame=2
+  Coord 2: x=1588, y=9931, frame=3
+  Coord 3: x=1586, y=373, frame=4
+  BoundingBox: xMin=1586, xMax=1591, yMin=373, yMax=9931
+
+
+EntityId: 3, FramesCount: 219
+  Coord 0: x=900, y=345, frame=135
+  Coord 1: x=1314, y=345, frame=136
+  Coord 2: x=1312, y=346, frame=137
+  Coord 3: x=1310, y=348, frame=138
+  BoundingBox: xMin=900, xMax=1314, yMin=345, yMax=348
+
+
+EntityId: 4, FramesCount: 45
+  Coord 0: x=1570, y=714, frame=356
+  Coord 1: x=1569, y=713, frame=357
+  BoundingBox: xMin=1569, xMax=1570, yMin=713, yMax=714
+
+Global BoundingBox: xMin=900, xMax=8750, yMin=150, yMax=9931
