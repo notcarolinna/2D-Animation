@@ -5,7 +5,7 @@ from OpenGL.GLUT import *
 from OpenGL.GLU import *
 from OpenGL.GL import *
 
-from Objects import (Starship, Planet, create_starship, create_planets)
+from Objects import (Planet, create_planets)
 from Player import PlayerSystem, Ponto, Quadrado
 
 class App:
@@ -29,17 +29,15 @@ class App:
         # Estados da aplicação
         self.paused = False
         self.follow_starship = False
-        self.show_starship = True
         self.show_planets = True
         self.show_player = True
         
         # Objetos principais
-        self.starship = create_starship()
         self.planets = create_planets()
         
         # Sistema do Player - importado
         self.player_system = PlayerSystem()
-        
+
     def set_ortho(self, l, r, b, t):
         self.left, self.right, self.bottom, self.top = l, r, b, t
         glMatrixMode(GL_PROJECTION)
@@ -64,7 +62,7 @@ class App:
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
         gluOrtho2D(self.left + self.panX, self.right + self.panX, 
-                self.bottom + self.panY, self.top + self.panY)
+                   self.bottom + self.panY, self.top + self.panY)
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
         
@@ -73,29 +71,23 @@ class App:
         
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-        
+
+        # conteúdo: planetas e nave
         if self.show_planets:
             for planet in self.planets:
                 planet.draw()
-
-        if self.show_starship:
-            glPushMatrix()
-            glScalef(2.0, 2.0, 1.0)  # Escala 2x
-            self.starship.draw()
-            glPopMatrix()
         
         # conteúdo: quadrados do Player
         if self.show_player:
             for q in self.player_system.quadrados:
                 self.player_system.desenhaQuadrado(q.pos.x, q.pos.y, q.w, q.h, q.c)
 
-        # overlay: eixos + bbox - COMENTADO PARA REMOVER A CRUZ
-        # self.player_system.desenhaEixos(self.left, self.right, self.bottom, self.top, self.panX, self.panY)
-        self.player_system.desenhaBBox()  # Mantém apenas a bounding box amarela
+        # overlay: bbox apenas (removido grid e eixos)
+        self.player_system.desenhaBBox()
         
         glDisable(GL_BLEND)
         glFlush()
-
+    
     def update(self):
         if self.paused:
             glutPostRedisplay()
@@ -113,15 +105,8 @@ class App:
             if self.show_planets:
                 self.update_planets(delta_time)
             
-            if self.show_starship:
-                self.starship.update(self.tempo_total, delta_time)
-                
-                if self.follow_starship:
-                    self.panX = -self.starship.pos.x + 2.0
-                
-                if self.starship.should_reset():
-                    self.starship.reset()
-                    self.tempo_total = 0.0
+            # REMOVIDO: todas as chamadas para métodos que não existem na Starship
+            # A nave agora é apenas estática
         
         glutPostRedisplay()
     
@@ -134,32 +119,25 @@ class App:
             if self.show_player:
                 bounds = self.player_system.fit_to_squares()
                 self.set_ortho(*bounds)
-            else:
-                self.follow_starship = not self.follow_starship
         elif key == ord('1'):
             self.show_planets = not self.show_planets
         elif key == ord('2'):
             self.show_player = not self.show_player
-        elif key == ord('3'):
-            self.show_starship = not self.show_starship
         elif key == ord('r') or key == ord('R'):
             self.reset_all()
         
-        # Controles do Player - MOVIMENTO MAIS RÁPIDO
+        # Controles do Player
+        elif key == ord(' '):  # novo quadrado
+            self.player_system.quadrados.append(Quadrado(0.5, 0.5))  # Quadrado maior
+            self.player_system.num_quadrado = len(self.player_system.quadrados) - 1
         elif key == b'a':  # Mover esquerda
-            self.player_system.quadrados[self.player_system.num_quadrado].pos -= Ponto(0.1, 0)  # Era 0.02
+            self.player_system.quadrados[self.player_system.num_quadrado].pos -= Ponto(0.1, 0)  # Movimento mais rápido
         elif key == b'd':  # Mover direita
-            self.player_system.quadrados[self.player_system.num_quadrado].pos += Ponto(0.1, 0)  # Era 0.02
+            self.player_system.quadrados[self.player_system.num_quadrado].pos += Ponto(0.1, 0)
         elif key == b'w':  # Mover cima
-            self.player_system.quadrados[self.player_system.num_quadrado].pos += Ponto(0, 0.1)  # Era 0.02
+            self.player_system.quadrados[self.player_system.num_quadrado].pos += Ponto(0, 0.1)
         elif key == b's':  # Mover baixo
-            self.player_system.quadrados[self.player_system.num_quadrado].pos -= Ponto(0, 0.1)  # Era 0.02
-        elif key == b'g':  # grid on/off
-            self.player_system.SHOW_GRID = not self.player_system.SHOW_GRID
-        elif key == b'b':  # bbox on/off
-            self.player_system.SHOW_BBOX = not self.player_system.SHOW_BBOX
-        elif key == b'0':  # reset ortho
-            self.reset_ortho()
+            self.player_system.quadrados[self.player_system.num_quadrado].pos -= Ponto(0, 0.1)
     
     def handle_special_keys(self, key, x, y):
         if key == GLUT_KEY_LEFT:  
@@ -172,7 +150,7 @@ class App:
             self.panY += 0.5
     
     def reset_all(self):
-        self.starship.reset()
+        # REMOVIDO: self.starship.reset() - não existe mais
         self.tempo_total = 0.0
         self.panX = 0.0
         self.panY = 0.0
@@ -215,7 +193,7 @@ def main():
     glutInit(sys.argv)
     glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB)
     glutInitWindowSize(1400, 1000)
-    glutCreateWindow(b"2D Animation")
+    glutCreateWindow(b"App Integrado - Starship + Planetas + Player")
     
     app = App()
     
