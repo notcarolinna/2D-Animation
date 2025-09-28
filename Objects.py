@@ -76,14 +76,12 @@ end_pose = DrawingUtils.end_pose
 class Planet:
     def __init__(self, name, x=0, y=0, radius=1.0, color=(1,1,1)):
         self.name, self.x, self.y, self.radius, self.color = name, x, y, radius, color
-        self.rotation = 0.0
+        self.rotation = 0.0  # rotação estática inicial
         self.orbital_radius = 0.0; self.orbital_speed = 0.0; self.orbital_angle = 0.0
 
     def update(self, dt):
-        self.rotation += {
-            "Sun":10.0, "Mercury":50.0, "Venus":30.0, "Earth":40.0, "Mars":35.0,
-            "Jupiter":60.0, "Saturn":45.0, "Uranus":25.0, "Neptune":30.0
-        }.get(self.name, 30.0) * dt
+        """Método vazio - sem animação automática"""
+        pass
 
     def draw(self):
         with_pose(self.x, self.y, rot_deg=self.rotation, scale=(self.radius, self.radius))
@@ -143,8 +141,8 @@ def draw_mars(cx, cy, r):
     set_color(*C["mars"]); circle(cx, cy, r, True)
     set_color(1,1,1,0.85); ellipse(cx, cy+0.85*r, 0.30*r, 0.08*r, True); ellipse(cx, cy-0.85*r, 0.30*r, 0.08*r, True)
     set_color(0.6,0.15,0.05,0.95); line(cx-0.8*r, cy+0.1*r, cx+0.6*r, cy-0.1*r, 4.0)
-    set_color(0.7,0.25,0.15,0.7); ellipse(cx+0.30*r, cy-0.20*r, 0.15*r, 0.10*r, True)  # cratera grande
-    set_color(0.8,0.35,0.20,0.6); ellipse(cx-0.20*r, cy+0.30*r, 0.12*r, 0.08*r, True)  # outra formação
+    set_color(0.7,0.25,0.15,0.7); ellipse(cx+0.30*r, cy-0.20*r, 0.15*r, 0.10*r, True)
+    set_color(0.8,0.35,0.20,0.6); ellipse(cx-0.20*r, cy+0.30*r, 0.12*r, 0.08*r, True)
     radial_shade(cx, cy, r, 0.0, 0.20)
 
 def draw_jupiter(cx, cy, r):
@@ -186,17 +184,122 @@ DRAWERS = {
 }
 
 def create_planets():
+    """Cria planetas em posições estáticas iniciais"""
     cfg = [
-        ("Sun",0.0,4.0,1.2,(1,1,0)), ("Mercury",2.0,4.0,0.3,C["mercury"]),
-        ("Venus",3.0,3.0,0.4,C["venus"]), ("Earth",4.5,2.0,0.5,C["earth"]),
-        ("Mars",6.0,1.5,0.4,C["mars"]), ("Jupiter",9.0,0.8,1.0,C["jupiter"]),
-        ("Saturn",12.0,0.6,0.8,C["saturn"]), ("Uranus",15.0,0.4,0.6,C["uranus"]),
-        ("Neptune",18.0,0.3,0.6,C["neptune"])
+        ("Sun",0.0,0.0,1.2,(1,1,0)), ("Mercury",2.0,0.0,0.3,C["mercury"]),
+        ("Venus",3.0,0.0,0.4,C["venus"]), ("Earth",4.5,0.0,0.5,C["earth"]),
+        ("Mars",6.0,0.0,0.4,C["mars"]), ("Jupiter",9.0,0.0,1.0,C["jupiter"]),
+        ("Saturn",12.0,0.0,0.8,C["saturn"]), ("Uranus",15.0,0.0,0.6,C["uranus"]),
+        ("Neptune",18.0,0.0,0.6,C["neptune"])
     ]
     planets = []
-    for name, r_orb, v_orb, size, color in cfg:
-        p = Planet(name, 0, 0, size, color)
-        p.orbital_radius, p.orbital_speed = r_orb, v_orb
-        p.orbital_angle = (hash(name) % 100) / 100.0 * 2 * math.pi
+    for name, x, y, size, color in cfg:
+        p = Planet(name, x, y, size, color)
+        # Propriedades orbitais removidas - serão controladas pelo Paths_D
         planets.append(p)
     return planets
+
+class Comet:
+    def __init__(self, x=0, y=0, vx=0, vy=0, size=0.1, tail_length=20):
+        self.x = x
+        self.y = y
+        self.vx = vx  # velocidade (não usada na animação automática)
+        self.vy = vy  # velocidade (não usada na animação automática)
+        self.size = size
+        self.tail_length = tail_length
+        self.tail_positions = [(x, y)]  # posição inicial na cauda
+        self.brightness = 1.0  # brilho estático
+        self.life_time = 0.0
+        
+    def update(self, dt):
+        """Método vazio - sem movimento automático"""
+        pass
+        
+    def set_position(self, x, y):
+        """Define a posição do cometa (controlado externamente)"""
+        self.x = x
+        self.y = y
+        # Adiciona à cauda apenas se a posição mudou significativamente
+        if len(self.tail_positions) == 0 or \
+           abs(self.tail_positions[-1][0] - x) > 0.01 or \
+           abs(self.tail_positions[-1][1] - y) > 0.01:
+            self.tail_positions.append((x, y))
+            
+        # Mantém apenas as últimas posições para a cauda
+        if len(self.tail_positions) > self.tail_length:
+            self.tail_positions.pop(0)
+    
+    def is_visible(self, screen_bounds):
+        """Verifica se o cometa ainda está visível na tela"""
+        margin = 2.0  # margem para cauda
+        return (self.x > screen_bounds[0] - margin and 
+                self.x < screen_bounds[1] + margin and
+                self.y > screen_bounds[2] - margin and 
+                self.y < screen_bounds[3] + margin)
+        
+    def draw(self):
+        """Desenha o cometa com sua cauda"""
+        # Desenha a cauda primeiro (atrás do núcleo)
+        self._draw_tail()
+        
+        # Desenha o núcleo do cometa
+        self._draw_nucleus()
+        
+        # Desenha a coma (atmosfera do cometa)
+        self._draw_coma()
+        
+    def _draw_tail(self):
+        """Desenha a cauda do cometa"""
+        if len(self.tail_positions) < 2:
+            return
+            
+        # Cauda de poeira (amarelada)
+        for i in range(len(self.tail_positions) - 1):
+            t = i / (len(self.tail_positions) - 1)
+            alpha = t * 0.5 + 0.1
+            width = max(1.0, self.size * 20 * t)
+            
+            x1, y1 = self.tail_positions[i]
+            x2, y2 = self.tail_positions[i + 1]
+            
+            set_color(1.0, 0.9, 0.6, alpha)
+            line(x1, y1, x2, y2, width)
+            
+        # Cauda de íons (azulada, mais fina)
+        for i in range(len(self.tail_positions) - 1):
+            t = i / (len(self.tail_positions) - 1)
+            alpha = t * 0.4 + 0.05
+            width = max(0.5, self.size * 15 * t)
+            
+            x1, y1 = self.tail_positions[i]
+            x2, y2 = self.tail_positions[i + 1]
+            
+            offset_x = 0.02 * (1 - t)
+            offset_y = 0.01 * (1 - t)
+            
+            set_color(0.6, 0.8, 1.0, alpha)
+            line(x1 + offset_x, y1 + offset_y, x2 + offset_x, y2 + offset_y, width)
+    
+    def _draw_nucleus(self):
+        """Desenha o núcleo rochoso do cometa"""
+        set_color(0.4, 0.3, 0.2, 1.0)
+        circle(self.x, self.y, self.size, True)
+        
+        set_color(0.2, 0.15, 0.1, 0.8)
+        circle(self.x - self.size * 0.3, self.y + self.size * 0.2, self.size * 0.2, True)
+        circle(self.x + self.size * 0.2, self.y - self.size * 0.3, self.size * 0.15, True)
+    
+    def _draw_coma(self):
+        """Desenha a coma (atmosfera brilhante) ao redor do núcleo"""
+        set_color(1.0, 1.0, 0.9, 0.3 * self.brightness)
+        circle(self.x, self.y, self.size * 2, True)
+        
+        set_color(1.0, 0.9, 0.7, 0.15 * self.brightness)
+        circle(self.x, self.y, self.size * 4, True)
+        
+        set_color(1.0, 1.0, 1.0, 0.6 * self.brightness)
+        circle(self.x, self.y, self.size * 0.8, True)
+
+def create_comet(x=0, y=0, size=0.08):
+    """Função utilitária para criar um cometa estático"""
+    return Comet(x, y, 0, 0, size)

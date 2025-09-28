@@ -5,7 +5,7 @@ from OpenGL.GLUT import *
 from OpenGL.GLU import *
 from OpenGL.GL import *
 
-from Objects import (Planet, create_planets)
+from Objects import (Planet, create_planets, Comet, create_comet)
 from Player import PlayerSystem, Ponto, Quadrado
 
 class App:
@@ -37,6 +37,18 @@ class App:
         
         # Sistema do Player - importado
         self.player_system = PlayerSystem()
+        
+        # Adicionar um cometa estático ao lado dos planetas
+        self.comets = []
+        self.show_comets = True  # habilitado por padrão para mostrar o cometa
+        
+        # Criar um cometa estático posicionado entre os planetas
+        static_comet = create_comet(x=7.5, y=2.0, size=0.15)  # Entre Mars e Jupiter
+        # Adicionar algumas posições à cauda para parecer que está se movendo
+        static_comet.tail_positions = [
+            (6.8, 2.3), (7.0, 2.2), (7.2, 2.1), (7.4, 2.05), (7.5, 2.0)
+        ]
+        self.comets.append(static_comet)
 
     def set_ortho(self, l, r, b, t):
         self.left, self.right, self.bottom, self.top = l, r, b, t
@@ -82,6 +94,11 @@ class App:
             for q in self.player_system.quadrados:
                 self.player_system.desenhaQuadrado(q.pos.x, q.pos.y, q.w, q.h, q.c)
 
+        # Desenhar cometas (antes dos planetas para ficarem atrás)
+        if self.show_comets:
+            for comet in self.comets:
+                comet.draw()
+                
         # overlay: bbox apenas (removido grid e eixos)
         self.player_system.desenhaBBox()
         
@@ -104,9 +121,6 @@ class App:
             
             if self.show_planets:
                 self.update_planets(delta_time)
-            
-            # REMOVIDO: todas as chamadas para métodos que não existem na Starship
-            # A nave agora é apenas estática
         
         glutPostRedisplay()
     
@@ -138,6 +152,9 @@ class App:
             self.player_system.quadrados[self.player_system.num_quadrado].pos += Ponto(0, 0.1)
         elif key == b's':  # Mover baixo
             self.player_system.quadrados[self.player_system.num_quadrado].pos -= Ponto(0, 0.1)
+        elif key == ord('4'):
+            self.show_comets = not self.show_comets
+            print(f"Cometas: {'ON' if self.show_comets else 'OFF'}")
     
     def handle_special_keys(self, key, x, y):
         if key == GLUT_KEY_LEFT:  

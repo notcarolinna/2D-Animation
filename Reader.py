@@ -1,16 +1,16 @@
 import re
 from typing import List, Tuple
 
-class Point:
+class Coordinate:
     def __init__(self, x: int, y: int, f: int):
         self.x = x
         self.y = y
         self.f = f
 
 class Entity:
-    def __init__(self, frames_count: int, points: List[Point]):
+    def __init__(self, frames_count: int, coordinates: List[Coordinate]):
         self.frames_count = frames_count
-        self.points = points
+        self.coordinates = coordinates
 
 class PathsData:
     def __init__(self, scale: int, entities: List[Entity]):
@@ -28,7 +28,6 @@ def parse_paths_file(path: str) -> PathsData:
     with open(path, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
-    # 1) escala (obrigatória)
     for ln in lines:
         m = PAT_SCALE.search(ln)
         if m:
@@ -37,9 +36,8 @@ def parse_paths_file(path: str) -> PathsData:
     if scale is None:
         raise ValueError("Escala não encontrada no arquivo (formato [XXX]).")
 
-    # 2) entidades linha a linha
     for idx, ln in enumerate(lines, start=1):
-        if "(" not in ln:   # ignora linhas sem coordenadas
+        if "(" not in ln:  
             continue
 
         h = PAT_HEADER.match(ln)
@@ -51,31 +49,15 @@ def parse_paths_file(path: str) -> PathsData:
         if not triples:
             continue
 
-        pts = [Point(int(x), int(y), int(fr)) for (x, y, fr) in triples]
+        pts = [Coordinate(int(x), int(y), int(fr)) for (x, y, fr) in triples]
         if len(pts) != frames_count:
             print(f"linha {idx}: frames declarados={frames_count}, lidos={len(pts)}.")
 
-        entities.append(Entity(frames_count=frames_count, points=pts))
+        entities.append(Entity(frames_count=frames_count, coordinates=pts))
 
     return PathsData(scale=scale, entities=entities)
 
-# ---------- Utilidades ----------
-def entity_bbox(points: List[Point]) -> Tuple[int, int, int, int]:
-    xs = [p.x for p in points]
-    ys = [p.y for p in points]
+def entity_bbox(coordinates: List[Coordinate]) -> Tuple[int, int, int, int]:
+    xs = [p.x for p in coordinates]
+    ys = [p.y for p in coordinates]
     return min(xs), min(ys), max(xs), max(ys)
-
-# ---------- Exemplo ----------
-if __name__ == "__main__":
-    path = "./resources/Paths_D.txt"
-    data = parse_paths_file(path)
-
-    print(f"Escala encontrada: {data.scale}")
-    print(f"Total de entidades: {len(data.entities)}\n")
-
-    for i, ent in enumerate(data.entities[:7], start=1):
-        print(f"Entidade {i}: frames_count={ent.frames_count}, pontos_lidos={len(ent.points)}")
-        if ent.points:
-            xmin, ymin, xmax, ymax = entity_bbox(ent.points)
-            print(f"  BBox img: xmin={xmin}, ymin={ymin}, xmax={xmax}, ymax={ymax}")
-        print()
