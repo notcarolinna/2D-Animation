@@ -7,7 +7,7 @@ from OpenGL.GL import *
 
 from Objects import (Planet, create_planets, Comet, create_comet)
 from Player import PlayerSystem, Ponto, Quadrado
-from AnimationSystem import AnimationSystem
+from Animation import Animation 
 
 class App:
     def __init__(self, width=1400, height=1000):
@@ -40,7 +40,7 @@ class App:
         self.create_comets()
         
         # Sistema de animação
-        self.animation_system = AnimationSystem()
+        self.animation_system = Animation()
         
         # Configurar animações
         self.setup_animations()
