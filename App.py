@@ -34,11 +34,13 @@ class App:
         self.stars = []
         self.create_stars()
         
+        # IMPORTANTE: Criar player_system ANTES de animation_system
+        self.player_system = PlayerSystem()
+        
         self.animation_system = Animation()
         
+        # Agora pode chamar setup_animations() com player_system já criado
         self.setup_animations()
-        
-        self.player_system = PlayerSystem()
 
     def create_stars(self):
         star_count = 4
@@ -52,9 +54,17 @@ class App:
             self.stars.append(star)
 
     def setup_animations(self):
-        planets_animated = self.animation_system.setup_planets_animation(self.planets)
-        stars_animated = self.animation_system.setup_comets_animation(self.stars, planets_animated)
-        total_animated = planets_animated + stars_animated
+        # Primeiro: player na entidade 0
+        player_animated = self.animation_system.setup_player_animation(self.player_system)
+        
+        # Segundo: planetas nas próximas entidades
+        planets_animated = self.animation_system.setup_planets_animation(self.planets, start_entity_id=1)
+        
+        # Terceiro: estrelas nas entidades restantes
+        stars_start_id = 1 + planets_animated
+        stars_animated = self.animation_system.setup_stars_animation(self.stars, stars_start_id)
+        
+        total_animated = player_animated + planets_animated + stars_animated
 
     def set_ortho(self, l, r, b, t):
         self.left, self.right, self.bottom, self.top = l, r, b, t
@@ -137,18 +147,29 @@ class App:
         if key == 27:
             sys.exit(0)
         
-        elif key == b'w':
+        # Controle do player - aumentei a velocidade de 0.1 para 0.3
+        if key == b'w':
             if self.player_system.quadrados:
-                self.player_system.quadrados[self.player_system.num_quadrado].pos += Ponto(0, 0.1)
+                self.player_system.quadrados[self.player_system.num_quadrado].pos += Ponto(0, 0.3)  # Era 0.1
         elif key == b's':
             if self.player_system.quadrados:
-                self.player_system.quadrados[self.player_system.num_quadrado].pos -= Ponto(0, 0.1)
+                self.player_system.quadrados[self.player_system.num_quadrado].pos -= Ponto(0, 0.3)  # Era 0.1
         elif key == b'a':
             if self.player_system.quadrados:
-                self.player_system.quadrados[self.player_system.num_quadrado].pos -= Ponto(0.1, 0)
+                self.player_system.quadrados[self.player_system.num_quadrado].pos -= Ponto(0.3, 0)  # Era 0.1
         elif key == b'd':
             if self.player_system.quadrados:
-                self.player_system.quadrados[self.player_system.num_quadrado].pos += Ponto(0.1, 0)
+                self.player_system.quadrados[self.player_system.num_quadrado].pos += Ponto(0.3, 0)  # Era 0.1
+        
+        # Teclas para controlar animação
+        elif key == b'p':
+            self.paused = not self.paused
+        elif key == b'1':
+            self.show_planets = not self.show_planets
+        elif key == b'2':
+            self.show_player = not self.show_player
+        elif key == b'r' or key == b'R':
+            self.reset_all()
     
     def handle_special_keys(self, key, x, y):
         if key == GLUT_KEY_LEFT:  

@@ -29,7 +29,12 @@ class Animation:
         if animation_speed is None:
             animation_speed = self.default_speed
         
-        self.original_positions[entity_id] = (obj.x, obj.y)
+        # Para player (entidade 0), usar pos.x e pos.y
+        if entity_id == 0 and hasattr(obj, 'pos'):
+            self.original_positions[entity_id] = (obj.pos.x, obj.pos.y)
+        # Para planetas e estrelas, usar x e y
+        else:
+            self.original_positions[entity_id] = (obj.x, obj.y)
         
         self.animated_objects[entity_id] = obj
         self.trajectories[entity_id] = trajectory
@@ -38,24 +43,40 @@ class Animation:
         
         return True
     
-    def setup_planets_animation(self, planets):
+    def setup_player_animation(self, player_system):
+        if len(player_system.quadrados) > 0:
+            player_obj = player_system.quadrados[player_system.num_quadrado]
+            
+            # Posicionar o player na posição inicial da entidade 0
+            trajectory = self.reader.get_entity_trajectory(0)
+            if trajectory and len(trajectory) > 0:
+                initial_pos = trajectory[0]
+                player_obj.pos.x = initial_pos[0]
+                player_obj.pos.y = initial_pos[1]
+            
+            success = self.add_animated_object(0, player_obj, self.default_speed)
+            return 1 if success else 0
+        return 0
+    
+    def setup_planets_animation(self, planets, start_entity_id=1):
         animated_count = 0
         for i, planet in enumerate(planets):
-            if i < self.total_entities:
-                success = self.add_animated_object(i, planet, self.default_speed)
+            entity_id = start_entity_id + i
+            if entity_id < self.total_entities:
+                success = self.add_animated_object(entity_id, planet, self.default_speed)
                 
                 if success:
                     animated_count += 1
         
         return animated_count
     
-    def setup_comets_animation(self, comets, start_entity_id):
+    def setup_stars_animation(self, stars, start_entity_id):
         animated_count = 0
-        for i, comet in enumerate(comets):
+        for i, star in enumerate(stars):
             entity_id = start_entity_id + i
             
             if entity_id < self.total_entities:
-                success = self.add_animated_object(entity_id, comet, self.default_speed)
+                success = self.add_animated_object(entity_id, star, self.default_speed)
                 
                 if success:
                     animated_count += 1
@@ -71,6 +92,10 @@ class Animation:
     
     def _update_single_animation(self, entity_id, delta_time):
         if entity_id not in self.animated_objects:
+            return
+        
+        # Pular atualização da entidade 0 (player) - será controlado manualmente
+        if entity_id == 0:
             return
         
         obj = self.animated_objects[entity_id]
@@ -92,11 +117,11 @@ class Animation:
         new_x = current_point[0] + (next_point[0] - current_point[0]) * interpolation_factor
         new_y = current_point[1] + (next_point[1] - current_point[1]) * interpolation_factor
         
-        # Para cometas, usar set_position para criar rastro
+        # Para estrelas, usar set_position para criar rastro
         if hasattr(obj, 'set_position'):
             obj.set_position(new_x, new_y)
+        # Para planetas, definir posição diretamente
         else:
-            # Para planetas, definir posição diretamente
             obj.x = new_x
             obj.y = new_y
     
@@ -107,8 +132,14 @@ class Animation:
             for entity_id, obj in self.animated_objects.items():
                 if entity_id in self.original_positions:
                     orig_x, orig_y = self.original_positions[entity_id]
-                    if hasattr(obj, 'set_position'):
+                    # Para player (entidade 0), usar pos
+                    if entity_id == 0 and hasattr(obj, 'pos'):
+                        obj.pos.x = orig_x
+                        obj.pos.y = orig_y
+                    # Para estrelas, usar set_position
+                    elif hasattr(obj, 'set_position'):
                         obj.set_position(orig_x, orig_y)
+                    # Para planetas, definir posição diretamente
                     else:
                         obj.x = orig_x
                         obj.y = orig_y
@@ -121,8 +152,14 @@ class Animation:
             for entity_id, obj in self.animated_objects.items():
                 if entity_id in self.original_positions:
                     orig_x, orig_y = self.original_positions[entity_id]
-                    if hasattr(obj, 'set_position'):
+                    # Para player (entidade 0), usar pos
+                    if entity_id == 0 and hasattr(obj, 'pos'):
+                        obj.pos.x = orig_x
+                        obj.pos.y = orig_y
+                    # Para estrelas, usar set_position
+                    elif hasattr(obj, 'set_position'):
                         obj.set_position(orig_x, orig_y)
+                    # Para planetas, definir posição diretamente
                     else:
                         obj.x = orig_x
                         obj.y = orig_y
