@@ -1,7 +1,7 @@
 import math
 from OpenGL.GL import *
 
-class DrawingUtils:   
+class DrawUtils:   
     def set_color(r, g, b, a=1.0): 
         glColor4f(r, g, b, a)
 
@@ -33,253 +33,227 @@ class DrawingUtils:
         glEnd()
 
     def line(x1, y1, x2, y2, w=2.0):
+        if w <= 0: w = 0.1
         glLineWidth(w)
-        glBegin(GL_LINES); glVertex2f(x1, y1); glVertex2f(x2, y2); glEnd()
+        glBegin(GL_LINES)
+        glVertex2f(x1, y1)
+        glVertex2f(x2, y2)
+        glEnd()
 
     def radial_shade(cx, cy, r, inner_alpha=0.0, outer_alpha=0.30, steps=24):
         for i in range(steps, 0, -1):
             t = i / steps
             a = inner_alpha*(1-t) + outer_alpha*t
-            DrawingUtils.set_color(0,0,0,a)
-            DrawingUtils.circle(cx, cy, r*t, True, 96)
+            DrawUtils.set_color(0, 0, 0, a)
+            DrawUtils.circle(cx, cy, r*t, True, 96)
 
     def begin_clip_circle(cx, cy, r, seg=128):
-        glEnable(GL_STENCIL_TEST); glClear(GL_STENCIL_BUFFER_BIT)
-        glStencilFunc(GL_ALWAYS, 1, 0xFF); glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE)
+        glEnable(GL_STENCIL_TEST)
+        glClear(GL_STENCIL_BUFFER_BIT)
+        glStencilFunc(GL_ALWAYS, 1, 0xFF)
+        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE)
         glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE)
-        DrawingUtils.circle(cx, cy, r, True, seg)
-        glColorMask(GL_TRUE,  GL_TRUE,  GL_TRUE,  GL_TRUE)
-        glStencilFunc(GL_EQUAL, 1, 0xFF); glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP)
+        DrawUtils.circle(cx, cy, r, True, seg)
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE)
+        glStencilFunc(GL_EQUAL, 1, 0xFF)
+        glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP)
 
     def end_clip(): 
         glDisable(GL_STENCIL_TEST)
 
     def with_pose(cx, cy, rot_deg=0.0, scale=(1.0,1.0)):
-        glPushMatrix(); glTranslatef(cx, cy, 0)
+        glPushMatrix()
+        glTranslatef(cx, cy, 0)
         if rot_deg: glRotatef(rot_deg, 0, 0, 1)
-        if scale!=(1.0,1.0): glScalef(scale[0], scale[1], 1.0)
+        if scale != (1.0,1.0): glScalef(scale[0], scale[1], 1.0)
 
     def end_pose(): 
         glPopMatrix()
 
-set_color = DrawingUtils.set_color
-circle = DrawingUtils.circle
-ellipse = DrawingUtils.ellipse
-ring = DrawingUtils.ring
-line = DrawingUtils.line
-radial_shade = DrawingUtils.radial_shade
-begin_clip_circle = DrawingUtils.begin_clip_circle
-end_clip = DrawingUtils.end_clip
-with_pose = DrawingUtils.with_pose
-end_pose = DrawingUtils.end_pose
-
 def edge_ring(cx, cy, r, k=0.985, rgba=(1,1,1,0.20)):
-    set_color(*rgba)
-    ring(cx, cy, r*k, r, seg=140)
+    DrawUtils.set_color(*rgba)
+    DrawUtils.ring(cx, cy, r*k, r, seg=140)
 
 class Star:
-    def __init__(self, x=0, y=0, vx=0, vy=0, size=0.05, tail_length=20):  # Mudei de 0.1 para 0.05
-        self.x = x
-        self.y = y
-        self.vx = vx
-        self.vy = vy
-        self.size = size
-        self.tail_length = tail_length
+    def __init__(self, x=0, y=0, vx=0, vy=0, size=0.05):
+        self.x, self.y, self.vx, self.vy, self.size = x, y, vx, vy, size
         self.tail_positions = [(x, y)]
-        self.brightness = 1.0
         self.life_time = 0.0
-        self.twinkle_offset = 0.0
         
     def update(self, dt):
         self.life_time += dt
-        self.twinkle_offset = math.sin(self.life_time * 8.0) * 0.3 + 0.7
         
     def set_position(self, x, y):
-        self.x = x
-        self.y = y
-        if len(self.tail_positions) == 0 or \
-           abs(self.tail_positions[-1][0] - x) > 0.01 or \
-           abs(self.tail_positions[-1][1] - y) > 0.01:
+        self.x, self.y = x, y
+        if not self.tail_positions or abs(self.tail_positions[-1][0] - x) > 0.01:
             self.tail_positions.append((x, y))
-            
-        if len(self.tail_positions) > self.tail_length:
-            self.tail_positions.pop(0)
-    
-    def is_visible(self, screen_bounds):
-        margin = 2.0
-        return (self.x > screen_bounds[0] - margin and 
-                self.x < screen_bounds[1] + margin and
-                self.y > screen_bounds[2] - margin and 
-                self.y < screen_bounds[3] + margin)
+            if len(self.tail_positions) > 20:
+                self.tail_positions.pop(0)
         
     def draw(self):
-        self._draw_star_trail()
-        self._draw_star_rays()
-        self._draw_star_core()
+        brightness = math.sin(self.life_time * 8.0) * 0.3 + 0.7
         
-    def _draw_star_trail(self):
-        if len(self.tail_positions) < 2:
-            return
-            
+        # Trail
         for i in range(len(self.tail_positions) - 1):
-            t = i / (len(self.tail_positions) - 1)
-            alpha = t * 0.6 + 0.1
+            t = i / max(1, len(self.tail_positions) - 1)
             width = max(0.5, self.size * 25 * t)
-            
-            x1, y1 = self.tail_positions[i]
-            x2, y2 = self.tail_positions[i + 1]
-            
-            set_color(1.0, 1.0, 0.9, alpha * self.twinkle_offset)
-            line(x1, y1, x2, y2, width)
-    
-    def _draw_star_rays(self):
-        ray_length = self.size * 4  # Mudei de 6 para 4 - raios menores
-        brightness = self.brightness * self.twinkle_offset
+            DrawUtils.set_color(1.0, 1.0, 0.9, (t * 0.6 + 0.1) * brightness)
+            DrawUtils.line(*self.tail_positions[i], *self.tail_positions[i + 1], width)
         
-        set_color(1.0, 1.0, 0.8, 0.8 * brightness)
-        
-        angles = [0, 45, 90, 135, 180, 225, 270, 315]
-        for angle in angles:
+        # Rays
+        DrawUtils.set_color(1.0, 1.0, 0.8, 0.8 * brightness)
+        ray_len = self.size * 4
+        for angle in range(0, 360, 45):
             rad = math.radians(angle)
-            dx = math.cos(rad) * ray_length
-            dy = math.sin(rad) * ray_length
-            
-            line(self.x, self.y, self.x + dx, self.y + dy, 2.0)  # Mudei de 3.0 para 2.0
+            DrawUtils.line(self.x, self.y, 
+                         self.x + ray_len * math.cos(rad), 
+                         self.y + ray_len * math.sin(rad), 2.0)
         
-        short_ray_length = self.size * 2  # Mudei de 3 para 2
-        for i in range(8):
-            angle = 22.5 + i * 45
-            rad = math.radians(angle)
-            dx = math.cos(rad) * short_ray_length
-            dy = math.sin(rad) * short_ray_length
-            
-            set_color(1.0, 0.95, 0.7, 0.5 * brightness)
-            line(self.x, self.y, self.x + dx, self.y + dy, 1.0)  # Mudei de 1.5 para 1.0
-    
-    def _draw_star_core(self):
-        brightness = self.brightness * self.twinkle_offset
-        
-        set_color(1.0, 1.0, 1.0, 1.0 * brightness)
-        circle(self.x, self.y, self.size * 0.8, True)
-        
-        set_color(1.0, 1.0, 0.9, 0.7 * brightness)
-        circle(self.x, self.y, self.size * 1.5, True)
-        
-        set_color(1.0, 0.9, 0.7, 0.4 * brightness)
-        circle(self.x, self.y, self.size * 2.5, True)
-        
-        set_color(1.0, 0.8, 0.6, 0.2 * brightness)
-        circle(self.x, self.y, self.size * 4.0, True)
+        # Core layers
+        for size_mult, alpha_mult, color_shift in [(0.8, 1.0, 0.0), (1.5, 0.7, 0.1), (2.5, 0.4, 0.2), (4.0, 0.2, 0.3)]:
+            DrawUtils.set_color(1.0, 1.0 - color_shift, 1.0 - color_shift, alpha_mult * brightness)
+            DrawUtils.circle(self.x, self.y, self.size * size_mult, True)
 
 class Planet:
     def __init__(self, name, x=0, y=0, radius=1.0, color=(1,1,1)):
         self.name, self.x, self.y, self.radius, self.color = name, x, y, radius, color
-        self.rotation = 0.0
-        self.orbital_radius = 0.0; self.orbital_speed = 0.0; self.orbital_angle = 0.0
 
-    def update(self, dt):
-        pass
+    def update(self, dt): pass
 
     def draw(self):
-        with_pose(self.x, self.y, rot_deg=self.rotation, scale=(self.radius, self.radius))
-        fn = DRAWERS.get(self.name.lower())
-        if fn: fn(0,0,1.0)
-        else:  set_color(*self.color); circle(0,0,1.0,True)
-        end_pose()
+        DrawUtils.with_pose(self.x, self.y, scale=(self.radius, self.radius))
+        drawer = PLANET_DRAWERS.get(self.name.lower())
+        if drawer:
+            drawer(0, 0, 1.0)
+        else:
+            DrawUtils.set_color(*self.color)
+            DrawUtils.circle(0, 0, 1.0, True)
+        DrawUtils.end_pose()
 
-C = {
-    "sun":       (1.00, 0.65, 0.15, 1.0),  
-    "mercury":   (0.70, 0.50, 0.30, 1.0),  
-    "venus":     (1.00, 0.95, 0.20, 1.0), 
-    "earth":     (0.25, 0.66, 0.96, 1.0),  
-    "earthLand": (0.42, 0.82, 0.42, 1.0),  
-    "mars":      (0.90, 0.20, 0.10, 1.0),  
-    "jupiter":   (0.74, 0.53, 0.33, 1.0),  
-    "saturn":    (0.90, 0.82, 0.70, 1.0),  # Mudei para bege claro
-    "uranus":    (0.43, 0.86, 0.79, 1.0),  
-    "neptune":   (0.29, 0.39, 0.85, 1.0),  
+COLORS = {
+    "sun": (1.00, 0.65, 0.15, 1.0), "mercury": (0.70, 0.50, 0.30, 1.0), "venus": (1.00, 0.95, 0.20, 1.0),
+    "earth": (0.25, 0.66, 0.96, 1.0), "earthLand": (0.42, 0.82, 0.42, 1.0), "mars": (0.90, 0.20, 0.10, 1.0),
+    "jupiter": (0.74, 0.53, 0.33, 1.0), "saturn": (0.90, 0.82, 0.70, 1.0), 
+    "uranus": (0.43, 0.86, 0.79, 1.0), "neptune": (0.29, 0.39, 0.85, 1.0)
 }
 
 def draw_sun(cx, cy, r):
-    set_color(*C["sun"]); circle(cx, cy, r, True, 128)
-    begin_clip_circle(cx, cy, r)
-    set_color(1.00,0.92,0.55,0.45); ellipse(cx-0.10*r, cy+0.25*r, 0.70*r, 0.18*r, True)
-    set_color(1.00,0.60,0.10,0.28); ellipse(cx+0.15*r, cy-0.30*r, 0.55*r, 0.15*r, True)
-    end_clip()
-    set_color(1.00, 0.92, 0.50, 0.35); circle(cx, cy, 0.75*r, True, 96)
-    radial_shade(cx, cy, r, 0.0, 0.25)
+    DrawUtils.set_color(*COLORS["sun"])
+    DrawUtils.circle(cx, cy, r, True, 128)
+    DrawUtils.begin_clip_circle(cx, cy, r)
+    DrawUtils.set_color(1.00, 0.92, 0.55, 0.45)
+    DrawUtils.ellipse(cx-0.10*r, cy+0.25*r, 0.70*r, 0.18*r, True)
+    DrawUtils.set_color(1.00, 0.60, 0.10, 0.28)
+    DrawUtils.ellipse(cx+0.15*r, cy-0.30*r, 0.55*r, 0.15*r, True)
+    DrawUtils.end_clip()
+    DrawUtils.set_color(1.00, 0.92, 0.50, 0.35)
+    DrawUtils.circle(cx, cy, 0.75*r, True, 96)
+    DrawUtils.radial_shade(cx, cy, r, 0.0, 0.25)
 
 def draw_mercury(cx, cy, r):
-    set_color(*C["mercury"]); circle(cx, cy, r, True)
-    begin_clip_circle(cx, cy, r)
-    set_color(0.46, 0.33, 0.23, 1.0); circle(cx-0.26*r, cy+0.16*r, 0.26*r, True)
-    set_color(0.38, 0.27, 0.20, 1.0); circle(cx+0.22*r, cy-0.14*r, 0.18*r, True)
-    set_color(0.54, 0.40, 0.29, 1.0); circle(cx-0.06*r, cy-0.28*r, 0.12*r, True)
-    end_clip(); radial_shade(cx, cy, r, 0.0, 0.10)
+    DrawUtils.set_color(*COLORS["mercury"])
+    DrawUtils.circle(cx, cy, r, True)
+    DrawUtils.begin_clip_circle(cx, cy, r)
+    DrawUtils.set_color(0.46, 0.33, 0.23, 1.0)
+    DrawUtils.circle(cx-0.26*r, cy+0.16*r, 0.26*r, True)
+    DrawUtils.set_color(0.38, 0.27, 0.20, 1.0)
+    DrawUtils.circle(cx+0.22*r, cy-0.14*r, 0.18*r, True)
+    DrawUtils.set_color(0.54, 0.40, 0.29, 1.0)
+    DrawUtils.circle(cx-0.06*r, cy-0.28*r, 0.12*r, True)
+    DrawUtils.end_clip()
+    DrawUtils.radial_shade(cx, cy, r, 0.0, 0.10)
     edge_ring(cx, cy, r)
 
 def draw_venus(cx, cy, r):
-    set_color(*C["venus"]); circle(cx, cy, r, True)
-    begin_clip_circle(cx, cy, r)
-    set_color(1.00, 0.84, 0.45, 1.0); ellipse(cx, cy+0.26*r, 0.95*r, 0.12*r, True)
-    set_color(1.00, 0.90, 0.68, 1.0); ellipse(cx, cy-0.02*r, 0.99*r, 0.11*r, True)
-    set_color(0.98, 0.78, 0.42, 1.0); ellipse(cx, cy-0.30*r, 0.93*r, 0.12*r, True)
-    end_clip(); radial_shade(cx, cy, r, 0.0, 0.10)
+    DrawUtils.set_color(*COLORS["venus"])
+    DrawUtils.circle(cx, cy, r, True)
+    DrawUtils.begin_clip_circle(cx, cy, r)
+    DrawUtils.set_color(1.00, 0.84, 0.45, 1.0)
+    DrawUtils.ellipse(cx, cy+0.26*r, 0.95*r, 0.12*r, True)
+    DrawUtils.set_color(1.00, 0.90, 0.68, 1.0)
+    DrawUtils.ellipse(cx, cy-0.02*r, 0.99*r, 0.11*r, True)
+    DrawUtils.set_color(0.98, 0.78, 0.42, 1.0)
+    DrawUtils.ellipse(cx, cy-0.30*r, 0.93*r, 0.12*r, True)
+    DrawUtils.end_clip()
+    DrawUtils.radial_shade(cx, cy, r, 0.0, 0.10)
     edge_ring(cx, cy, r)
 
 def draw_earth(cx, cy, r):
-    set_color(*C["earth"]); circle(cx, cy, r, True)
-    begin_clip_circle(cx, cy, r)
-    set_color(*C["earthLand"])
-    circle(cx-0.30*r, cy+0.10*r, 0.42*r, True)
-    circle(cx+0.32*r, cy-0.02*r, 0.30*r, True)
-    circle(cx+0.12*r, cy-0.36*r, 0.18*r, True)
-    end_clip(); radial_shade(cx, cy, r, 0.0, 0.10)
+    DrawUtils.set_color(*COLORS["earth"])
+    DrawUtils.circle(cx, cy, r, True)
+    DrawUtils.begin_clip_circle(cx, cy, r)
+    DrawUtils.set_color(*COLORS["earthLand"])
+    DrawUtils.circle(cx-0.30*r, cy+0.10*r, 0.42*r, True)
+    DrawUtils.circle(cx+0.32*r, cy-0.02*r, 0.30*r, True)
+    DrawUtils.circle(cx+0.12*r, cy-0.36*r, 0.18*r, True)
+    DrawUtils.end_clip()
+    DrawUtils.radial_shade(cx, cy, r, 0.0, 0.10)
     edge_ring(cx, cy, r, rgba=(1,1,1,0.35))
 
 def draw_mars(cx, cy, r):
-    set_color(*C["mars"]); circle(cx, cy, r, True)
-    begin_clip_circle(cx, cy, r)
-    set_color(0.70, 0.18, 0.12, 1.0); ellipse(cx-0.12*r, cy+0.16*r, 0.34*r, 0.14*r, True)
-    set_color(0.62, 0.16, 0.10, 1.0); ellipse(cx+0.22*r, cy-0.12*r, 0.26*r, 0.12*r, True)
-    set_color(0.55, 0.10, 0.10, 1.0); circle(cx+0.10*r, cy-0.08*r, 0.16*r, True)
-    set_color(0.58, 0.14, 0.12, 1.0); circle(cx-0.26*r, cy+0.02*r, 0.12*r, True)
-    end_clip(); radial_shade(cx, cy, r, 0.0, 0.10)
+    DrawUtils.set_color(*COLORS["mars"])
+    DrawUtils.circle(cx, cy, r, True)
+    DrawUtils.begin_clip_circle(cx, cy, r)
+    DrawUtils.set_color(0.70, 0.18, 0.12, 1.0)
+    DrawUtils.ellipse(cx-0.12*r, cy+0.16*r, 0.34*r, 0.14*r, True)
+    DrawUtils.set_color(0.62, 0.16, 0.10, 1.0)
+    DrawUtils.ellipse(cx+0.22*r, cy-0.12*r, 0.26*r, 0.12*r, True)
+    DrawUtils.set_color(0.55, 0.10, 0.10, 1.0)
+    DrawUtils.circle(cx+0.10*r, cy-0.08*r, 0.16*r, True)
+    DrawUtils.set_color(0.58, 0.14, 0.12, 1.0)
+    DrawUtils.circle(cx-0.26*r, cy+0.02*r, 0.12*r, True)
+    DrawUtils.end_clip()
+    DrawUtils.radial_shade(cx, cy, r, 0.0, 0.10)
     edge_ring(cx, cy, r)
 
 def draw_jupiter(cx, cy, r):
-    set_color(*C["jupiter"]); circle(cx, cy, r, True)
-    begin_clip_circle(cx, cy, r)
-    set_color(0.80,0.70,0.60,0.8)
-    ellipse(cx, cy+0.40*r, 0.90*r, 0.10*r, True); ellipse(cx, cy+0.10*r, 0.95*r, 0.12*r, True)
-    ellipse(cx, cy-0.20*r, 0.90*r, 0.10*r, True); ellipse(cx, cy-0.50*r, 0.85*r, 0.08*r, True)
-    set_color(0.80,0.30,0.20,0.9); ellipse(cx+0.40*r, cy-0.10*r, 0.25*r, 0.15*r, True)
-    end_clip(); radial_shade(cx, cy, r, 0.0, 0.18)
+    DrawUtils.set_color(*COLORS["jupiter"])
+    DrawUtils.circle(cx, cy, r, True)
+    DrawUtils.begin_clip_circle(cx, cy, r)
+    DrawUtils.set_color(0.80, 0.70, 0.60, 0.8)
+    DrawUtils.ellipse(cx, cy+0.40*r, 0.90*r, 0.10*r, True)
+    DrawUtils.ellipse(cx, cy+0.10*r, 0.95*r, 0.12*r, True)
+    DrawUtils.ellipse(cx, cy-0.20*r, 0.90*r, 0.10*r, True)
+    DrawUtils.ellipse(cx, cy-0.50*r, 0.85*r, 0.08*r, True)
+    DrawUtils.set_color(0.80, 0.30, 0.20, 0.9)
+    DrawUtils.ellipse(cx+0.40*r, cy-0.10*r, 0.25*r, 0.15*r, True)
+    DrawUtils.end_clip()
+    DrawUtils.radial_shade(cx, cy, r, 0.0, 0.18)
 
 def draw_saturn(cx, cy, r):
-    with_pose(cx, cy, rot_deg=-20, scale=(1.0, 0.40))
-    set_color(0.90,0.86,0.78,0.8); ring(0, 0, 1.20*r, 1.80*r)
-    set_color(0.82,0.78,0.72,0.8); ring(0, 0, 1.35*r, 1.55*r)
-    end_pose()
-    set_color(*C["saturn"]); circle(cx, cy, r, True)
-    set_color(0.80,0.70,0.50,0.6); ellipse(cx, cy+0.10*r, 0.90*r, 0.08*r, True)
-    radial_shade(cx, cy, r, 0.0, 0.20)
+    DrawUtils.with_pose(cx, cy, rot_deg=-20, scale=(1.0, 0.40))
+    DrawUtils.set_color(0.90, 0.86, 0.78, 0.8)
+    DrawUtils.ring(0, 0, 1.20*r, 1.80*r)
+    DrawUtils.set_color(0.82, 0.78, 0.72, 0.8)
+    DrawUtils.ring(0, 0, 1.35*r, 1.55*r)
+    DrawUtils.end_pose()
+    DrawUtils.set_color(*COLORS["saturn"])
+    DrawUtils.circle(cx, cy, r, True)
+    DrawUtils.set_color(0.80, 0.70, 0.50, 0.6)
+    DrawUtils.ellipse(cx, cy+0.10*r, 0.90*r, 0.08*r, True)
+    DrawUtils.radial_shade(cx, cy, r, 0.0, 0.20)
 
 def draw_uranus(cx, cy, r):
-    set_color(*C["uranus"]); circle(cx, cy, r, True)
-    with_pose(cx, cy, rot_deg=85, scale=(1.0, 0.20))
-    set_color(0.80,0.90,1.00,0.6); ring(0, 0, 1.10*r, 1.30*r)
-    end_pose()
-    set_color(0.40,0.60,0.80,0.4); ellipse(cx, cy, 0.90*r, 0.10*r, True)
-    radial_shade(cx, cy, r, 0.0, 0.18)
+    DrawUtils.set_color(*COLORS["uranus"])
+    DrawUtils.circle(cx, cy, r, True)
+    DrawUtils.with_pose(cx, cy, rot_deg=85, scale=(1.0, 0.20))
+    DrawUtils.set_color(0.80, 0.90, 1.00, 0.6)
+    DrawUtils.ring(0, 0, 1.10*r, 1.30*r)
+    DrawUtils.end_pose()
+    DrawUtils.set_color(0.40, 0.60, 0.80, 0.4)
+    DrawUtils.ellipse(cx, cy, 0.90*r, 0.10*r, True)
+    DrawUtils.radial_shade(cx, cy, r, 0.0, 0.18)
 
 def draw_neptune(cx, cy, r):
-    set_color(*C["neptune"]); circle(cx, cy, r, True)
-    set_color(0.20,0.40,0.80,0.7); line(cx-0.8*r, cy+0.1*r, cx+0.8*r, cy-0.1*r, 5.0)
-    set_color(0.10,0.20,0.50,0.8); ellipse(cx+0.30*r, cy-0.25*r, 0.15*r, 0.12*r, True)
-    radial_shade(cx, cy, r, 0.0, 0.20)
+    DrawUtils.set_color(*COLORS["neptune"])
+    DrawUtils.circle(cx, cy, r, True)
+    DrawUtils.set_color(0.20, 0.40, 0.80, 0.7)
+    DrawUtils.line(cx-0.8*r, cy+0.1*r, cx+0.8*r, cy-0.1*r, 5.0)
+    DrawUtils.set_color(0.10, 0.20, 0.50, 0.8)
+    DrawUtils.ellipse(cx+0.30*r, cy-0.25*r, 0.15*r, 0.12*r, True)
+    DrawUtils.radial_shade(cx, cy, r, 0.0, 0.20)
 
-DRAWERS = {
+PLANET_DRAWERS = {
     "sun": draw_sun, "mercury": draw_mercury, "venus": draw_venus, "earth": draw_earth,
     "mars": draw_mars, "jupiter": draw_jupiter, "saturn": draw_saturn,
     "uranus": draw_uranus, "neptune": draw_neptune
@@ -287,20 +261,14 @@ DRAWERS = {
 
 def create_planets():
     cfg = [
-        ("Sun",0.0,0.0,1.2,(1,1,0)), ("Mercury",2.0,0.0,0.3,C["mercury"]),
-        ("Venus",3.0,0.0,0.4,C["venus"]), ("Earth",4.5,0.0,0.5,C["earth"]),
-        ("Mars",6.0,0.0,0.4,C["mars"]), ("Jupiter",9.0,0.0,1.0,C["jupiter"]),
-        ("Saturn",12.0,0.0,0.8,C["saturn"]), ("Uranus",15.0,0.0,0.6,C["uranus"]),
-        ("Neptune",18.0,0.0,0.6,C["neptune"])
+        ("Sun", 0.0, 0.0, 1.2), ("Mercury", 2.0, 0.0, 0.3), ("Venus", 3.0, 0.0, 0.4),
+        ("Earth", 4.5, 0.0, 0.5), ("Mars", 6.0, 0.0, 0.4), ("Jupiter", 9.0, 0.0, 1.0),
+        ("Saturn", 12.0, 0.0, 0.8), ("Uranus", 15.0, 0.0, 0.6), ("Neptune", 18.0, 0.0, 0.6)
     ]
-    planets = []
-    for name, x, y, size, color in cfg:
-        p = Planet(name, x, y, size, color)
-        planets.append(p)
-    return planets
+    return [Planet(name, x, y, size, COLORS.get(name.lower(), (1,1,1))) for name, x, y, size in cfg]
 
-def create_star(x=0, y=0, vx=0, vy=0, size=0.04):  # Mudei de 0.08 para 0.04
+def create_star(x=0, y=0, vx=0, vy=0, size=0.04):
     return Star(x, y, vx, vy, size)
 
-def create_comet(x=0, y=0, vx=0, vy=0, size=0.04):  # Mudei de 0.08 para 0.04
+def create_comet(x=0, y=0, vx=0, vy=0, size=0.04):
     return create_star(x, y, vx, vy, size)

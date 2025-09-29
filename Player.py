@@ -1,113 +1,108 @@
 import math
-from OpenGL.GLUT import *
-from OpenGL.GLU import *
 from OpenGL.GL import *
 
 class Ponto:
     def __init__(self, x: float, y: float):
-        self.x = x
-        self.y = y
+        self.x, self.y = x, y
     def __add__(self, other): return Ponto(self.x + other.x, self.y + other.y)
     def __sub__(self, other): return Ponto(self.x - other.x, self.y - other.y)
     def __mul__(self, escalar: float): return Ponto(self.x * escalar, self.y * escalar)
 
-class Quadrado:
-    def __init__(self, w, h, cor=(1,1,1)):
+class UFO:
+    def __init__(self, radius=0.8, cor=(0.7, 0.7, 0.7)): 
         self.pos = Ponto(0, 0)
-        self.w = w
-        self.h = h
+        self.radius = radius
+        self.w, self.h = radius * 2, radius * 1.2
         self.c = cor
+
+class GLDraw:
+    @staticmethod
+    def circle(cx, cy, radius, filled=True, segments=32):
+        glBegin(GL_TRIANGLE_FAN if filled else GL_LINE_LOOP)
+        if filled: glVertex2f(cx, cy)
+        for i in range(segments + 1):
+            angle = 2 * math.pi * i / segments
+            glVertex2f(cx + radius * math.cos(angle), cy + radius * math.sin(angle))
+        glEnd()
+
+    @staticmethod
+    def ellipse(cx, cy, width, height, filled=True, segments=32):
+        glBegin(GL_TRIANGLE_FAN if filled else GL_LINE_LOOP)
+        if filled: glVertex2f(cx, cy)
+        for i in range(segments + 1):
+            angle = 2 * math.pi * i / segments
+            glVertex2f(cx + width * math.cos(angle), cy + height * math.sin(angle))
+        glEnd()
+
+    @staticmethod
+    def tractor_beam(radius, time_factor):
+        beam_start_y = -radius * 0.3
+        beam_width = radius * 0.8 * (math.sin(time_factor * 3) * 0.3 + 0.7)
+        beam_end_y = beam_start_y - radius * 1.2
+        
+        layers = [(0.0, 1.0, 0.0, 1.0), (0.2, 1.0, 0.3, 0.85), (0.4, 0.9, 0.6, 0.7), 
+                 (0.6, 0.7, 0.9, 0.55), (0.8, 0.5, 1.0, 0.4)]
+        
+        pulse = (math.sin(time_factor * 3) * 0.3 + 0.7)
+        for i, (r, g, b, width_mult) in enumerate(layers):
+            glColor4f(r, g, b, (0.6 - i * 0.1) * pulse)
+            glBegin(GL_TRIANGLE_FAN)
+            glVertex2f(0, beam_start_y)
+            current_width = beam_width * width_mult
+            for j in range(21):
+                t = (j / 20) * 2 - 1
+                glVertex2f(current_width * t, beam_end_y)
+            glEnd()
+
+        glColor4f(0.8, 1.0, 0.8, 0.8)
+        glPointSize(2.0)
+        glBegin(GL_POINTS)
+        for i in range(8):
+            t = i / 8.0
+            y = beam_start_y - (radius * 1.2 * t)
+            x_offset = math.sin(time_factor * 2 + i) * beam_width * 0.48 * t
+            glVertex2f(x_offset, y)
+        glEnd()
 
 class PlayerSystem:
     def __init__(self):
-        self.quadrados = [Quadrado(0.8, 0.8)]
+        self.quadrados = [UFO(0.8)]
         self.num_quadrado = 0
-        self.SHOW_GRID = True
-        self.SHOW_BBOX = True
-        self.MARGIN_PCT = 0.10
 
-    def bbox_of_squares(self):
-        if not self.quadrados:
-            return (-1, -1, 1, 1)
-        xmin = min(q.pos.x for q in self.quadrados)
-        ymin = min(q.pos.y for q in self.quadrados)
-        xmax = max(q.pos.x + q.w for q in self.quadrados)
-        ymax = max(q.pos.y + q.h for q in self.quadrados)
-        return (xmin, ymin, xmax, ymax)
-
-    def nice_step(self, span):
-        if span <= 0: return 1.0
-        raw = span / 10.0
-        exp = math.floor(math.log10(raw)) if raw > 0 else 0
-        base = raw / (10 ** exp)
-        if base < 1.5: m = 1.0
-        elif base < 3.5: m = 2.0
-        elif base < 7.5: m = 5.0
-        else: m = 10.0
-        return m * (10 ** exp)
-
-    def desenhaQuadrado(self, x, y, w, h, cor=(1,1,1)):
+    def desenhaUFO(self, x, y, radius, cor=(0.7, 0.7, 0.7), time_factor=0):
         glPushMatrix()
         glTranslatef(x, y, 0)
+        
         glColor3f(*cor)
-        glBegin(GL_QUADS)
-        glVertex2f(0, 0)
-        glVertex2f(w, 0)
-        glVertex2f(w, h)
-        glVertex2f(0, h)
-        glEnd()
-        glPopMatrix()
-
-    def desenhaBBox(self):
-        if not self.SHOW_BBOX:
-            return
-        xmin, ymin, xmax, ymax = self.bbox_of_squares()
-        glPushMatrix()
-        glColor3f(1.0, 1.0, 0.0)
+        GLDraw.ellipse(0, 0, radius, radius * 0.3, True, 32)
+        
+        glColor3f(cor[0] * 0.5, cor[1] * 0.5, cor[2] * 0.5)
         glLineWidth(2)
-        glBegin(GL_LINE_LOOP)
-        glVertex2f(xmin, ymin)
-        glVertex2f(xmax, ymin)
-        glVertex2f(xmax, ymax)
-        glVertex2f(xmin, ymax)
+        GLDraw.ellipse(0, 0, radius, radius * 0.3, False, 32)
+        
+        glColor3f(min(1.0, cor[0] * 1.3), min(1.0, cor[1] * 1.3), min(1.0, cor[2] * 1.3))
+        glBegin(GL_TRIANGLE_FAN)
+        glVertex2f(0, 0)
+        dome_radius = radius * 0.6
+        for i in range(33):
+            angle = math.pi * i / 32
+            glVertex2f(dome_radius * math.cos(angle), dome_radius * math.sin(angle))
         glEnd()
+        
+        glColor3f(cor[0] * 0.4, cor[1] * 0.4, cor[2] * 0.4)
+        glLineWidth(2)
+        glBegin(GL_LINE_STRIP)
+        for i in range(33):
+            angle = math.pi * i / 32
+            glVertex2f(dome_radius * math.cos(angle), dome_radius * math.sin(angle))
+        glEnd()
+        
+        GLDraw.tractor_beam(radius, time_factor)
+        
+        glColor3f(1.0, 1.0, 0.0)
+        for i in range(6):
+            angle = 2 * math.pi * i / 6
+            GLDraw.circle(radius * 0.8 * math.cos(angle), radius * 0.1 * math.sin(angle), 
+                         radius * 0.05, True, 8)
+
         glPopMatrix()
-
-    def fit_to_bbox(self, xmin, ymin, xmax, ymax, margin_pct=None):
-        if margin_pct is None:
-            margin_pct = self.MARGIN_PCT
-        w = xmax - xmin
-        h = ymax - ymin
-        if w <= 0 or h <= 0:
-            w = h = 1.0
-            xmin, ymin = -0.5, -0.5
-            xmax, ymax = 0.5, 0.5
-        xmin -= w * margin_pct
-        xmax += w * margin_pct
-        ymin -= h * margin_pct
-        ymax += h * margin_pct
-
-        vp = glGetIntegerv(GL_VIEWPORT)
-        win_w = max(1, vp[2])
-        win_h = max(1, vp[3])
-        aspect_win = win_w / win_h
-        w = xmax - xmin
-        h = ymax - ymin
-        aspect_world = w / h
-
-        if aspect_world > aspect_win:
-            h_needed = w / aspect_win
-            delta = (h_needed - h) * 0.5
-            ymin -= delta
-            ymax += delta
-        else:
-            w_needed = h * aspect_win
-            delta = (w_needed - w) * 0.5
-            xmin -= delta
-            xmax += delta
-
-        return (xmin, xmax, ymin, ymax)
-
-    def fit_to_squares(self):
-        xmin, ymin, xmax, ymax = self.bbox_of_squares()
-        return self.fit_to_bbox(xmin, ymin, xmax, ymax)
