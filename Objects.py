@@ -2,11 +2,9 @@ import math
 from OpenGL.GL import *
 
 class DrawingUtils:   
-    @staticmethod
     def set_color(r, g, b, a=1.0): 
         glColor4f(r, g, b, a)
 
-    @staticmethod
     def circle(cx, cy, r, fill=True, seg=96):
         if r <= 0: return
         glBegin(GL_TRIANGLE_FAN if fill else GL_LINE_LOOP)
@@ -16,7 +14,6 @@ class DrawingUtils:
             glVertex2f(cx + r * math.cos(a), cy + r * math.sin(a))
         glEnd()
 
-    @staticmethod
     def ellipse(cx, cy, rx, ry, fill=True, seg=96):
         glBegin(GL_TRIANGLE_FAN if fill else GL_LINE_LOOP)
         if fill: glVertex2f(cx, cy)
@@ -25,7 +22,6 @@ class DrawingUtils:
             glVertex2f(cx + rx * math.cos(a), cy + ry * math.sin(a))
         glEnd()
 
-    @staticmethod
     def ring(cx, cy, r_in, r_out, seg=160):
         if r_out <= r_in: return
         glBegin(GL_TRIANGLE_STRIP)
@@ -36,12 +32,10 @@ class DrawingUtils:
             glVertex2f(cx + r_in  * c, cy + r_in  * s)
         glEnd()
 
-    @staticmethod
     def line(x1, y1, x2, y2, w=2.0):
         glLineWidth(w)
         glBegin(GL_LINES); glVertex2f(x1, y1); glVertex2f(x2, y2); glEnd()
 
-    @staticmethod
     def radial_shade(cx, cy, r, inner_alpha=0.0, outer_alpha=0.30, steps=24):
         for i in range(steps, 0, -1):
             t = i / steps
@@ -49,7 +43,6 @@ class DrawingUtils:
             DrawingUtils.set_color(0,0,0,a)
             DrawingUtils.circle(cx, cy, r*t, True, 96)
 
-    @staticmethod
     def begin_clip_circle(cx, cy, r, seg=128):
         glEnable(GL_STENCIL_TEST); glClear(GL_STENCIL_BUFFER_BIT)
         glStencilFunc(GL_ALWAYS, 1, 0xFF); glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE)
@@ -58,17 +51,14 @@ class DrawingUtils:
         glColorMask(GL_TRUE,  GL_TRUE,  GL_TRUE,  GL_TRUE)
         glStencilFunc(GL_EQUAL, 1, 0xFF); glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP)
 
-    @staticmethod
     def end_clip(): 
         glDisable(GL_STENCIL_TEST)
 
-    @staticmethod
     def with_pose(cx, cy, rot_deg=0.0, scale=(1.0,1.0)):
         glPushMatrix(); glTranslatef(cx, cy, 0)
         if rot_deg: glRotatef(rot_deg, 0, 0, 1)
         if scale!=(1.0,1.0): glScalef(scale[0], scale[1], 1.0)
 
-    @staticmethod
     def end_pose(): 
         glPopMatrix()
 
@@ -189,7 +179,6 @@ class Planet:
         self.orbital_radius = 0.0; self.orbital_speed = 0.0; self.orbital_angle = 0.0
 
     def update(self, dt):
-        """Método vazio - sem animação automática"""
         pass
 
     def draw(self):
