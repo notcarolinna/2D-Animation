@@ -29,57 +29,56 @@ class App:
         
         # Estados da aplicação
         self.paused = False
-        self.follow_starship = False
         self.show_planets = True
         self.show_player = True
         
         # Objetos principais
         self.planets = create_planets()
         
-        # Sistema de animação (usa o padrão do Reader)
+        # Cometas animados apenas - LIMPO
+        self.comets = []
+        self.create_comets()
+        
+        # Sistema de animação
         self.animation_system = AnimationSystem()
         
-        # Configurar sol para animação
-        self.setup_sun_animation()
+        # Configurar animações
+        self.setup_animations()
         
         # Sistema do Player
         self.player_system = PlayerSystem()
-        
-        # Cometas
-        self.comets = []
-        self.show_comets = True
-        
-        static_comet = create_comet(x=7.5, y=2.0, size=0.15)
-        static_comet.tail_positions = [
-            (6.8, 2.3), (7.0, 2.2), (7.2, 2.1), (7.4, 2.05), (7.5, 2.0)
-        ]
-        self.comets.append(static_comet)
 
-    def setup_sun_animation(self):
+    def create_comets(self):
         """
-        Configura a animação para o sol
+        Cria cometas que serão animados pelas entidades - SEM cometas estáticos
         """
-        # Encontrar o sol nos planetas
-        sun = None
-        for planet in self.planets:
-            # Assumir que o sol tem orbital_radius == 0 ou nome específico
-            if hasattr(planet, 'orbital_radius') and planet.orbital_radius == 0:
-                sun = planet
-                break
-            elif hasattr(planet, 'name') and planet.name.lower() in ['sun', 'sol']:
-                sun = planet
-                break
+        # Criar apenas cometas que serão animados
+        comet_count = 4  # Quantidade de cometas
         
-        # Se não encontrou o sol, usar o primeiro planeta
-        if sun is None and self.planets:
-            sun = self.planets[0]
+        for i in range(comet_count):
+            # Posições iniciais temporárias (serão substituídas pela animação)
+            x = 0.0
+            y = 0.0
+            size = 0.12 + (i * 0.02)  # Tamanhos variados
+            
+            comet = create_comet(x=x, y=y, size=size)
+            # NÃO adicionar cauda estática - será animada
+            self.comets.append(comet)
+
+    def setup_animations(self):
+        """
+        Configura as animações para planetas e cometas
+        """
+        print("DEBUG: Configurando animações...")
         
-        if sun:
-            success = self.animation_system.set_sun(sun)
-            if success:
-                print(f"DEBUG: Sol configurado para animação")
-            else:
-                print(f"DEBUG: Falha ao configurar sol")
+        # Primeiro, animar todos os planetas possíveis
+        planets_animated = self.animation_system.setup_planets_animation(self.planets)
+        
+        # Depois, animar os cometas com as entidades restantes
+        comets_animated = self.animation_system.setup_comets_animation(self.comets, planets_animated)
+        
+        total_animated = planets_animated + comets_animated
+        print(f"DEBUG: Total de objetos animados: {total_animated}")
 
     def set_ortho(self, l, r, b, t):
         self.left, self.right, self.bottom, self.top = l, r, b, t
@@ -93,18 +92,20 @@ class App:
         self.set_ortho(-20.0, 20.0, -15.0, 15.0)
         
     def update_planets(self, delta_time):
+        """
+        Atualiza planetas - pula animação orbital se estiver sendo animado pelo sistema
+        """
         for planet in self.planets:
-            # Se é o sol e a animação está ativa, pular atualização orbital
-            if planet == self.animation_system.sun and self.animation_system.enabled:
-                # Apenas atualizar animações internas (rotação, etc.)
-                planet.update(delta_time)
-                continue
-                
-            if hasattr(planet, 'orbital_radius') and planet.orbital_radius > 0:
+            # Verificar se o planeta está sendo animado
+            is_animated = planet in self.animation_system.animated_objects.values()
+            
+            if not is_animated and hasattr(planet, 'orbital_radius') and planet.orbital_radius > 0:
+                # Animação orbital normal
                 planet.orbital_angle += planet.orbital_speed * delta_time
                 planet.x = planet.orbital_radius * math.cos(planet.orbital_angle)
                 planet.y = planet.orbital_radius * math.sin(planet.orbital_angle) * 0.3
             
+            # Atualizar animações internas (rotação, etc.)
             planet.update(delta_time)
     
     def render(self):
@@ -122,7 +123,7 @@ class App:
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
-        # Desenhar planetas (incluindo sol animado)
+        # Desenhar planetas
         if self.show_planets:
             for planet in self.planets:
                 planet.draw()
@@ -132,9 +133,10 @@ class App:
             for q in self.player_system.quadrados:
                 self.player_system.desenhaQuadrado(q.pos.x, q.pos.y, q.w, q.h, q.c)
 
-        # Desenhar cometas
-        if self.show_comets:
-            for comet in self.comets:
+        # Desenhar APENAS cometas animados
+        for comet in self.comets:
+            # Só desenhar se estiver sendo animado
+            if comet in self.animation_system.animated_objects.values():
                 comet.draw()
                 
         # overlay: bbox apenas
@@ -160,7 +162,7 @@ class App:
             if self.show_planets:
                 self.update_planets(delta_time)
             
-            # Atualizar animação do sol
+            # Atualizar sistema de animação
             self.animation_system.update(delta_time)
         
         glutPostRedisplay()
@@ -168,37 +170,23 @@ class App:
     def handle_keyboard(self, key, x, y):
         if key == 27:  # ESC
             sys.exit(0)
-        elif key == ord('p') or key == ord('P'):
-            self.paused = not self.paused
-        elif key == ord('f') or key == ord('F'):
-            if self.show_player:
-                bounds = self.player_system.fit_to_squares()
-                self.set_ortho(*bounds)
-        elif key == ord('1'):
-            self.show_planets = not self.show_planets
-        elif key == ord('2'):
-            self.show_player = not self.show_player
-        elif key == ord('r') or key == ord('R'):
-            self.reset_all()
         
-        # Controles do Player
-        elif key == ord(' '):  
-            self.player_system.quadrados.append(Quadrado(0.5, 0.5))
-            self.player_system.num_quadrado = len(self.player_system.quadrados) - 1
-        elif key == b'a':  
-            if self.player_system.quadrados:
-                self.player_system.quadrados[self.player_system.num_quadrado].pos -= Ponto(0.1, 0)
-        elif key == b'd':  
-            if self.player_system.quadrados:
-                self.player_system.quadrados[self.player_system.num_quadrado].pos += Ponto(0.1, 0)
-        elif key == b'w':  
+        # Controles do Player - apenas WASD
+        elif key == b'w':  # Mover cima
             if self.player_system.quadrados:
                 self.player_system.quadrados[self.player_system.num_quadrado].pos += Ponto(0, 0.1)
-        elif key == b's':  
+        elif key == b's':  # Mover baixo
             if self.player_system.quadrados:
                 self.player_system.quadrados[self.player_system.num_quadrado].pos -= Ponto(0, 0.1)
+        elif key == b'a':  # Mover esquerda
+            if self.player_system.quadrados:
+                self.player_system.quadrados[self.player_system.num_quadrado].pos -= Ponto(0.1, 0)
+        elif key == b'd':  # Mover direita
+            if self.player_system.quadrados:
+                self.player_system.quadrados[self.player_system.num_quadrado].pos += Ponto(0.1, 0)
     
     def handle_special_keys(self, key, x, y):
+        # Manter apenas controles de câmera com setas
         if key == GLUT_KEY_LEFT:  
             self.panX += 0.5
         elif key == GLUT_KEY_RIGHT: 
@@ -215,7 +203,7 @@ class App:
         self.panY = 0.0
         self.zoom = 1.0
         
-        # Reset da animação
+        # Reset das animações
         self.animation_system.reset_all()
         
         for planet in self.planets:
