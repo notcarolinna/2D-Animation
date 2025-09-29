@@ -152,14 +152,11 @@ class Animation:
             for entity_id, obj in self.animated_objects.items():
                 if entity_id in self.original_positions:
                     orig_x, orig_y = self.original_positions[entity_id]
-                    # Para player (entidade 0), usar pos
                     if entity_id == 0 and hasattr(obj, 'pos'):
                         obj.pos.x = orig_x
                         obj.pos.y = orig_y
-                    # Para estrelas, usar set_position
                     elif hasattr(obj, 'set_position'):
                         obj.set_position(orig_x, orig_y)
-                    # Para planetas, definir posição diretamente
                     else:
                         obj.x = orig_x
                         obj.y = orig_y
@@ -168,13 +165,3 @@ class Animation:
         self.default_speed = new_speed
         for entity_id in self.animation_speeds:
             self.animation_speeds[entity_id] = new_speed
-
-    def set_sun(self, sun_object):
-        return self.add_animated_object(0, sun_object, self.default_speed)
-    
-    def set_sun_speed(self, speed):
-        self.set_animation_speed(0, speed)
-    
-    @property
-    def sun(self):
-        return self.animated_objects.get(0, None)
