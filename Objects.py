@@ -70,24 +70,56 @@ class DrawUtils:
     def end_pose(): 
         glPopMatrix()
 
-def edge_ring(cx, cy, r, k=0.985, rgba=(1,1,1,0.20)):
-    DrawUtils.set_color(*rgba)
-    DrawUtils.ring(cx, cy, r*k, r, seg=140)
+class PulseEffect:
+    def __init__(self, frequency=2.0, amplitude=0.2, offset=0.8):
+        self.frequency = frequency
+        self.amplitude = amplitude
+        self.offset = offset
+    
+    def get_value(self, time):
+        return math.sin(time * self.frequency) * self.amplitude + self.offset
+
+class GlowEffect:
+    def __init__(self, color, intensity=0.5, layers=4, max_size=2.0, pulse=None):
+        self.color = color
+        self.intensity = intensity
+        self.layers = layers
+        self.max_size = max_size
+        self.pulse = pulse or PulseEffect()
+    
+    def draw(self, cx, cy, base_radius, time):
+        pulse_value = self.pulse.get_value(time)
+        current_intensity = self.intensity * pulse_value
+        
+        for i in range(self.layers, 0, -1):
+            size_mult = (i / self.layers) * self.max_size + 1.0
+            alpha = (current_intensity / i) * 0.35
+            
+            r, g, b = self.color[0], self.color[1], self.color[2]
+            if i == self.layers:
+                DrawUtils.set_color(r * 0.8, g * 0.8, b * 0.8, alpha * 0.5)
+            elif i == self.layers - 1:
+                DrawUtils.set_color(r, g, b, alpha * 0.7)
+            else:
+                DrawUtils.set_color(min(1.0, r * 1.2), min(1.0, g * 1.2), min(1.0, b * 1.2), alpha)
+            
+            size_pulse = 1.0 + (pulse_value - 0.8) * 0.3
+            DrawUtils.circle(cx, cy, base_radius * size_mult * size_pulse, True, 64)
 
 class Star:
     def __init__(self, x=0, y=0, vx=0, vy=0, size=0.03):
         self.x, self.y, self.vx, self.vy, self.size = x, y, vx, vy, size
         self.tail_positions = [(x, y)]
         self.life_time = 0.0
-        self.core_size = size * 0.4  # Núcleo pequeno
-        self.tail_length = 35  # Rastro mais longo
+        self.core_size = size * 0.4
+        self.tail_length = 35
+        self.pulse = PulseEffect(6.0, 0.2, 0.8)
         
     def update(self, dt):
         self.life_time += dt
         
     def set_position(self, x, y):
         self.x, self.y = x, y
-        # Adiciona nova posição ao rastro com menos frequência para suavizar
         if not self.tail_positions or (abs(self.tail_positions[-1][0] - x) > 0.005 or 
                                      abs(self.tail_positions[-1][1] - y) > 0.005):
             self.tail_positions.append((x, y))
@@ -95,76 +127,42 @@ class Star:
                 self.tail_positions.pop(0)
         
     def draw(self):
-        # Pulsação suave do brilho
-        pulse = math.sin(self.life_time * 6.0) * 0.2 + 0.8
-        brightness = pulse * 0.9 + 0.1
-        
-        # Desenha o rastro/cauda do cometa
-        self._draw_comet_tail(brightness)
-        
-        # Desenha o halo ao redor do núcleo
-        self._draw_comet_glow(brightness)
-        
-        # Desenha o núcleo brilhante
-        self._draw_comet_core(brightness)
+        brightness = self.pulse.get_value(self.life_time) * 0.9 + 0.1
+        self._draw_tail(brightness)
+        self._draw_glow(brightness)
+        self._draw_core(brightness)
     
-    def _draw_comet_tail(self, brightness):
-        """Desenha a cauda do cometa com efeito de desbotamento"""
-        if len(self.tail_positions) < 2:
-            return
-            
+    def _draw_tail(self, brightness):
+        if len(self.tail_positions) < 2: return
         for i in range(len(self.tail_positions) - 1):
-            # Calcula a transparência baseada na posição no rastro
             t = i / max(1, len(self.tail_positions) - 1)
-            alpha = (t ** 1.5) * 0.7 * brightness  # Desbotamento exponencial
-            
-            # Largura da cauda diminui conforme se afasta do núcleo
+            alpha = (t ** 1.5) * 0.7 * brightness
             width = max(0.3, self.size * 20 * (t ** 0.7))
             
-            # Cor da cauda: azul-branco no início, laranja-vermelho no final
-            if t > 0.7:
-                # Cauda mais distante: tons quentes
-                r, g, b = 1.0, 0.6, 0.3
-            elif t > 0.4:
-                # Meio da cauda: transição
-                r, g, b = 1.0, 0.9, 0.7
-            else:
-                # Próximo ao núcleo: branco-azulado
-                r, g, b = 0.9, 0.95, 1.0
+            if t > 0.7: r, g, b = 1.0, 0.6, 0.3
+            elif t > 0.4: r, g, b = 1.0, 0.9, 0.7
+            else: r, g, b = 0.9, 0.95, 1.0
             
             DrawUtils.set_color(r, g, b, alpha)
             DrawUtils.line(*self.tail_positions[i], *self.tail_positions[i + 1], width)
     
-    def _draw_comet_glow(self, brightness):
-        """Desenha o halo/brilho ao redor do núcleo"""
-        # Halo externo suave
+    def _draw_glow(self, brightness):
+        colors = [(0.6, 0.8, 1.0), (0.8, 0.9, 1.0), (1.0, 0.95, 0.9), (1.0, 0.9, 0.7)]
         for layer in range(4, 0, -1):
-            size_mult = layer * 1.8
             alpha = (0.15 / layer) * brightness
-            if layer == 4:
-                DrawUtils.set_color(0.6, 0.8, 1.0, alpha)  # Azul claro externo
-            elif layer == 3:
-                DrawUtils.set_color(0.8, 0.9, 1.0, alpha)  # Branco-azulado
-            elif layer == 2:
-                DrawUtils.set_color(1.0, 0.95, 0.9, alpha)  # Branco quente
-            else:
-                DrawUtils.set_color(1.0, 0.9, 0.7, alpha)   # Amarelo suave
-            
-            DrawUtils.circle(self.x, self.y, self.size * size_mult, True, 64)
+            DrawUtils.set_color(*colors[layer-1], alpha)
+            DrawUtils.circle(self.x, self.y, self.size * layer * 1.8, True, 64)
     
-    def _draw_comet_core(self, brightness):
-        """Desenha o núcleo pequeno e brilhante do cometa"""
-        # Núcleo principal - muito brilhante e pequeno
-        DrawUtils.set_color(1.0, 1.0, 1.0, brightness)
-        DrawUtils.circle(self.x, self.y, self.core_size, True, 32)
+    def _draw_core(self, brightness):
+        core_layers = [(1.0, 1.0, 1.0, brightness), 
+                      (1.0, 1.0, 0.9, brightness * 1.2), 
+                      (1.0, 0.95, 0.8, brightness * 1.5)]
+        sizes = [self.core_size, self.core_size * 0.6, self.core_size * 0.3]
+        segs = [32, 16, 12]
         
-        # Centro super brilhante
-        DrawUtils.set_color(1.0, 1.0, 0.9, brightness * 1.2)
-        DrawUtils.circle(self.x, self.y, self.core_size * 0.6, True, 16)
-        
-        # Ponto central intenso
-        DrawUtils.set_color(1.0, 0.95, 0.8, brightness * 1.5)
-        DrawUtils.circle(self.x, self.y, self.core_size * 0.3, True, 12)
+        for (r, g, b, a), size, seg in zip(core_layers, sizes, segs):
+            DrawUtils.set_color(r, g, b, a)
+            DrawUtils.circle(self.x, self.y, size, True, seg)
 
 class Planet:
     def __init__(self, name, x=0, y=0, radius=1.0, color=(1,1,1)):
@@ -172,58 +170,49 @@ class Planet:
         self.life_time = 0.0
         self.solar_flares = []
         
-        # Inicializar efeitos especiais apenas para o Sol
+        config = PLANET_CONFIGS.get(name.lower(), PLANET_CONFIGS["earth"])
+        planet_color = COLORS.get(name.lower(), color[:3])
+        pulse = PulseEffect(config["frequency"], 0.2, 0.8)
+        self.glow = GlowEffect(planet_color, config["intensity"], config["layers"], config["max_size"], pulse)
+        
         if name.lower() == "sun":
             self._init_solar_effects()
 
     def _init_solar_effects(self):
-        """Inicializa erupções solares"""
         import random
-        
-        # Criar mais erupções solares em todo o raio (aumentado de 6 para 16)
         for _ in range(16):
-            angle = random.uniform(0, 2 * math.pi)
             self.solar_flares.append({
-                'angle': angle,
-                'length': random.uniform(0.2, 1.0),  # Variação maior no tamanho
-                'width': random.uniform(0.015, 0.08),  # Variação maior na largura
-                'speed': random.uniform(1.5, 5.0),  # Velocidades mais variadas
+                'angle': random.uniform(0, 2 * math.pi),
+                'length': random.uniform(0.2, 1.0),
+                'width': random.uniform(0.015, 0.08),
+                'speed': random.uniform(1.5, 5.0),
                 'life': random.uniform(0, 2 * math.pi),
-                'intensity': random.uniform(0.4, 1.0)  # Intensidade variável
+                'intensity': random.uniform(0.4, 1.0)
             })
 
     def update(self, dt):
         self.life_time += dt
-        
-        # Atualizar efeitos do Sol
         if self.name.lower() == "sun":
             self._update_solar_effects(dt)
 
     def _update_solar_effects(self, dt):
-        """Atualiza as erupções solares"""
-        import random
-            
-        # Atualizar erupções solares
         for flare in self.solar_flares:
             flare['life'] += flare['speed'] * dt
-            # Fazer as erupções variarem em tamanho com base na intensidade
             base_length = 0.3 + 0.5 * math.sin(flare['life'])
             flare['length'] = base_length * flare['intensity']
-            
-            # Pequena variação no ângulo para movimento mais orgânico
             flare['angle'] += math.sin(flare['life'] * 0.5) * 0.02 * dt
 
     def draw(self):
         DrawUtils.with_pose(self.x, self.y, scale=(self.radius, self.radius))
+        self.glow.draw(0, 0, 1.0, self.life_time)
         
-        # Desenhar efeitos especiais do Sol antes do planeta
         if self.name.lower() == "sun":
             self._draw_solar_effects()
         
         drawer = PLANET_DRAWERS.get(self.name.lower())
         if drawer:
             if self.name.lower() == "sun":
-                drawer(0, 0, 1.0, self.life_time)  # Passar tempo para animação
+                drawer(0, 0, 1.0, self.life_time)
             else:
                 drawer(0, 0, 1.0)
         else:
@@ -232,101 +221,80 @@ class Planet:
         DrawUtils.end_pose()
 
     def _draw_solar_effects(self):
-        """Desenha os efeitos de fogo do Sol"""
-        # Desenhar erupções solares
         for flare in self.solar_flares:
             self._draw_solar_flare(flare)
     
     def _draw_solar_flare(self, flare):
-        """Desenha uma erupção solar"""
-        angle = flare['angle']
-        length = flare['length']
-        width = flare['width']
-        intensity = flare['intensity']
+        angle, length, width, intensity = flare['angle'], flare['length'], flare['width'], flare['intensity']
+        base_x, base_y = math.cos(angle), math.sin(angle)
+        tip_x, tip_y = base_x * (1.0 + length), base_y * (1.0 + length)
         
-        # Posição base da erupção
-        base_x = math.cos(angle)
-        base_y = math.sin(angle)
-        
-        # Ponta da erupção
-        tip_x = base_x * (1.0 + length)
-        tip_y = base_y * (1.0 + length)
-        
-        # Desenhar a erupção com gradiente baseado na intensidade
-        for i in range(3):
-            alpha = (3 - i) * 0.25 * intensity  # Alpha baseado na intensidade
+        colors = [(1.0, 1.0, 0.9), (1.0, 0.8, 0.4), (1.0, 0.5, 0.2)]
+        for i, color in enumerate(colors):
+            alpha = (3 - i) * 0.25 * intensity
             w = width * (3 - i) * 0.8
-            
-            if i == 0:
-                DrawUtils.set_color(1.0, 1.0, 0.9, alpha)  # Branco-amarelo mais intenso
-            elif i == 1:
-                DrawUtils.set_color(1.0, 0.8, 0.4, alpha)  # Laranja
-            else:
-                DrawUtils.set_color(1.0, 0.5, 0.2, alpha)  # Vermelho-laranja
-            
+            DrawUtils.set_color(*color, alpha)
             DrawUtils.line(base_x, base_y, tip_x, tip_y, w * 25)
 
 COLORS = {
-    "sun": (1.00, 0.65, 0.15, 1.0), "mercury": (0.70, 0.50, 0.30, 1.0), "venus": (1.00, 0.95, 0.20, 1.0),
-    "earth": (0.25, 0.66, 0.96, 1.0), "earthLand": (0.42, 0.82, 0.42, 1.0), "mars": (0.90, 0.20, 0.10, 1.0),
-    "jupiter": (0.74, 0.53, 0.33, 1.0), "saturn": (0.90, 0.82, 0.70, 1.0), 
-    "uranus": (0.43, 0.86, 0.79, 1.0), "neptune": (0.29, 0.39, 0.85, 1.0)
+    "sun": (1.00, 0.65, 0.15), "mercury": (0.70, 0.50, 0.30), "venus": (1.00, 0.95, 0.20),
+    "earth": (0.25, 0.66, 0.96), "earthLand": (0.42, 0.82, 0.42), "mars": (0.90, 0.20, 0.10),
+    "jupiter": (0.74, 0.53, 0.33), "saturn": (0.90, 0.82, 0.70), 
+    "uranus": (0.43, 0.86, 0.79), "neptune": (0.29, 0.39, 0.85)
 }
 
+PLANET_CONFIGS = {
+    "sun": {"intensity": 1.0, "layers": 6, "max_size": 2.5, "frequency": 3.0},
+    "mercury": {"intensity": 0.3, "layers": 3, "max_size": 1.8, "frequency": 4.5},
+    "venus": {"intensity": 0.6, "layers": 4, "max_size": 2.0, "frequency": 2.8},
+    "earth": {"intensity": 0.5, "layers": 4, "max_size": 1.9, "frequency": 2.2},
+    "mars": {"intensity": 0.4, "layers": 3, "max_size": 1.7, "frequency": 3.5},
+    "jupiter": {"intensity": 0.7, "layers": 5, "max_size": 2.2, "frequency": 1.8},
+    "saturn": {"intensity": 0.6, "layers": 4, "max_size": 2.1, "frequency": 2.0},
+    "uranus": {"intensity": 0.5, "layers": 4, "max_size": 1.9, "frequency": 2.5},
+    "neptune": {"intensity": 0.6, "layers": 4, "max_size": 2.0, "frequency": 2.3}
+}
+
+
+def edge_ring(cx, cy, r, k=0.985, rgba=(1,1,1,0.20)):
+    DrawUtils.set_color(*rgba)
+    DrawUtils.ring(cx, cy, r*k, r, seg=140)
+
 def draw_sun(cx, cy, r, time=0.0):
-    # Pulsação dinâmica baseada no tempo
     pulse = math.sin(time * 3.0) * 0.1 + 1.0
     glow_pulse = math.sin(time * 5.0) * 0.15 + 0.85
     
-    # Halo externo pulsante (corona solar)
     for layer in range(5, 0, -1):
         size_mult = layer * 0.3 + 1.2
         alpha = (0.08 / layer) * glow_pulse
-        
-        if layer >= 4:
-            DrawUtils.set_color(1.0, 0.9, 0.6, alpha)  # Amarelo externo
-        elif layer >= 3:
-            DrawUtils.set_color(1.0, 0.7, 0.3, alpha)  # Laranja
-        else:
-            DrawUtils.set_color(1.0, 0.5, 0.2, alpha)  # Vermelho interno
-        
+        if layer >= 4: color = (1.0, 0.9, 0.6)
+        elif layer >= 3: color = (1.0, 0.7, 0.3)
+        else: color = (1.0, 0.5, 0.2)
+        DrawUtils.set_color(*color, alpha)
         DrawUtils.circle(cx, cy, r * size_mult * pulse, True, 96)
     
-    # Corpo principal do Sol com pulsação
     DrawUtils.set_color(*COLORS["sun"])
     DrawUtils.circle(cx, cy, r * pulse, True, 128)
     
-    # Efeitos de superfície animados
     DrawUtils.begin_clip_circle(cx, cy, r * pulse)
+    spot_time, flare_time = time * 2.0, time * 4.0
     
-    # Manchas solares animadas
-    spot_time = time * 2.0
     DrawUtils.set_color(1.00, 0.50, 0.15, 0.6)
     DrawUtils.ellipse(cx + 0.10*r*math.sin(spot_time), cy + 0.25*r, 0.70*r, 0.18*r, True)
-    
     DrawUtils.set_color(1.00, 0.45, 0.05, 0.4)
     DrawUtils.ellipse(cx + 0.15*r + 0.05*r*math.cos(spot_time*1.5), cy - 0.30*r, 0.55*r, 0.15*r, True)
     
-    # Erupções dinâmicas
-    flare_time = time * 4.0
     DrawUtils.set_color(1.00, 0.80, 0.30, 0.7 * (math.sin(flare_time) * 0.3 + 0.7))
     DrawUtils.ellipse(cx - 0.20*r, cy + 0.15*r*math.sin(flare_time), 0.40*r, 0.12*r, True)
-    
     DrawUtils.set_color(1.00, 0.75, 0.25, 0.5 * (math.cos(flare_time*0.7) * 0.3 + 0.7))
     DrawUtils.ellipse(cx + 0.25*r, cy - 0.20*r*math.cos(flare_time*1.2), 0.35*r, 0.10*r, True)
-    
     DrawUtils.end_clip()
     
-    # Centro super aquecido com pulsação
     center_pulse = math.sin(time * 7.0) * 0.2 + 0.8
     DrawUtils.set_color(1.00, 0.95, 0.60, 0.6 * center_pulse)
     DrawUtils.circle(cx, cy, 0.75*r*pulse, True, 96)
-    
-    # Núcleo incandescente
     DrawUtils.set_color(1.00, 1.00, 0.85, 0.4 * center_pulse)
     DrawUtils.circle(cx, cy, 0.5*r*pulse, True, 64)
-    
-    # Sombra radial dinâmica
     DrawUtils.radial_shade(cx, cy, r*pulse, 0.0, 0.35 * glow_pulse)
 
 def draw_mercury(cx, cy, r):

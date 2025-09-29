@@ -2,7 +2,7 @@ import re
 import os
 
 class Reader:
-    def __init__(self, paths_file="./resources/Paths_D.txt"):
+    def __init__(self, paths_file="./resources/teste_espacado.txt"):
         self.paths_file = paths_file
         self.scale = None
         self.entities = []
