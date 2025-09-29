@@ -1,12 +1,13 @@
 import math
 import time
 import sys
+import random
 from OpenGL.GLUT import *
 from OpenGL.GLU import *
 from OpenGL.GL import *
 
-from Objects import (Planet, create_planets, Star, create_star, create_comet)
-from Player import PlayerSystem, Ponto, Quadrado
+from Objects import (Planet, create_planets, Star, create_star)
+from Player import PlayerSystem, Ponto
 from Animation import Animation 
 
 class App:
@@ -23,7 +24,6 @@ class App:
         self.top, self.bottom = 15.0, -15.0
         self.panX = 0.0
         self.panY = 0.0
-        self.zoom = 1.0
         
         self.paused = False
         self.show_planets = True
@@ -34,12 +34,13 @@ class App:
         self.stars = []
         self.create_stars()
         
-        # IMPORTANTE: Criar player_system ANTES de animation_system
-        self.player_system = PlayerSystem()
+        # Criar estrelas de fundo
+        self.background_stars = []
+        self.create_background_stars()
         
+        self.player_system = PlayerSystem()
         self.animation_system = Animation()
         
-        # Agora pode chamar setup_animations() com player_system já criado
         self.setup_animations()
 
     def create_stars(self):
@@ -53,30 +54,53 @@ class App:
             star = create_star(x=x, y=y, size=size)
             self.stars.append(star)
 
+    def create_background_stars(self):
+        # Criar 150 pequenas estrelas de fundo espalhadas
+        random.seed(42)  # Para posições consistentes
+        
+        for _ in range(150):
+            x = random.uniform(-30, 30)  # Área maior que a tela visível
+            y = random.uniform(-20, 20)
+            brightness = random.uniform(0.3, 1.0)
+            size = random.uniform(0.02, 0.05)  # Pequenas
+            
+            self.background_stars.append({
+                'x': x,
+                'y': y, 
+                'brightness': brightness,
+                'size': size,
+                'twinkle_speed': random.uniform(0.5, 2.0)
+            })
+
+    def draw_background_stars(self):
+        glPointSize(1.0)
+        glBegin(GL_POINTS)
+        
+        for star in self.background_stars:
+            # Efeito de cintilação sutil
+            twinkle = math.sin(self.tempo_total * star['twinkle_speed']) * 0.2 + 0.8
+            alpha = star['brightness'] * twinkle
+            
+            # Cor branca/azulada
+            glColor4f(1.0, 1.0, 1.0, alpha)
+            glVertex2f(star['x'], star['y'])
+            
+            # Algumas estrelas com brilho extra
+            if star['brightness'] > 0.8:
+                glColor4f(0.8, 0.9, 1.0, alpha * 0.5)
+                glVertex2f(star['x'] + 0.01, star['y'])
+                glVertex2f(star['x'] - 0.01, star['y'])
+                glVertex2f(star['x'], star['y'] + 0.01)
+                glVertex2f(star['x'], star['y'] - 0.01)
+        
+        glEnd()
+
     def setup_animations(self):
-        # Primeiro: player na entidade 0
         player_animated = self.animation_system.setup_player_animation(self.player_system)
-        
-        # Segundo: planetas nas próximas entidades
         planets_animated = self.animation_system.setup_planets_animation(self.planets, start_entity_id=1)
-        
-        # Terceiro: estrelas nas entidades restantes
         stars_start_id = 1 + planets_animated
         stars_animated = self.animation_system.setup_stars_animation(self.stars, stars_start_id)
-        
-        total_animated = player_animated + planets_animated + stars_animated
 
-    def set_ortho(self, l, r, b, t):
-        self.left, self.right, self.bottom, self.top = l, r, b, t
-        glMatrixMode(GL_PROJECTION)
-        glLoadIdentity()
-        gluOrtho2D(self.left + self.panX, self.right + self.panX, 
-                   self.bottom + self.panY, self.top + self.panY)
-        glMatrixMode(GL_MODELVIEW)
-
-    def reset_ortho(self):
-        self.set_ortho(-20.0, 20.0, -15.0, 15.0)
-        
     def update_planets(self, delta_time):
         for planet in self.planets:
             is_animated = planet in self.animation_system.animated_objects.values()
@@ -96,11 +120,15 @@ class App:
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
         
-        glClearColor(0, 0, 0, 1)
+        # Fundo escuro do espaço
+        glClearColor(0.02, 0.02, 0.08, 1.0)  # Azul muito escuro
         glClear(GL_COLOR_BUFFER_BIT)
         
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+
+        # Desenhar estrelas de fundo primeiro
+        self.draw_background_stars()
 
         if self.show_planets:
             for planet in self.planets:
@@ -147,21 +175,18 @@ class App:
         if key == 27:
             sys.exit(0)
         
-        # Controle do player - aumentei a velocidade de 0.1 para 0.3
         if key == b'w':
             if self.player_system.quadrados:
-                self.player_system.quadrados[self.player_system.num_quadrado].pos += Ponto(0, 0.3)  # Era 0.1
+                self.player_system.quadrados[self.player_system.num_quadrado].pos += Ponto(0, 0.3)
         elif key == b's':
             if self.player_system.quadrados:
-                self.player_system.quadrados[self.player_system.num_quadrado].pos -= Ponto(0, 0.3)  # Era 0.1
+                self.player_system.quadrados[self.player_system.num_quadrado].pos -= Ponto(0, 0.3)
         elif key == b'a':
             if self.player_system.quadrados:
-                self.player_system.quadrados[self.player_system.num_quadrado].pos -= Ponto(0.3, 0)  # Era 0.1
+                self.player_system.quadrados[self.player_system.num_quadrado].pos -= Ponto(0.3, 0)
         elif key == b'd':
             if self.player_system.quadrados:
-                self.player_system.quadrados[self.player_system.num_quadrado].pos += Ponto(0.3, 0)  # Era 0.1
-        
-        # Teclas para controlar animação
+                self.player_system.quadrados[self.player_system.num_quadrado].pos += Ponto(0.3, 0)
         elif key == b'p':
             self.paused = not self.paused
         elif key == b'1':
@@ -185,7 +210,6 @@ class App:
         self.tempo_total = 0.0
         self.panX = 0.0
         self.panY = 0.0
-        self.zoom = 1.0
         
         self.animation_system.reset_all()
         
@@ -195,7 +219,6 @@ class App:
                 planet.rotation = 0.0
         
         self.player_system = PlayerSystem()
-        self.reset_ortho()
     
     def reshape(self, w, h):
         self.width, self.height = w, h
