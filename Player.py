@@ -58,42 +58,6 @@ class PlayerSystem:
         glEnd()
         glPopMatrix()
 
-    def desenhaEixos(self, left, right, bottom, top, panX, panY):
-        glPushMatrix()
-        glColor3f(1, 1, 1)
-        glLineWidth(1)
-        glBegin(GL_LINES)
-        glVertex2f(left + panX, 0); glVertex2f(right + panX, 0)
-        glVertex2f(0, bottom + panY); glVertex2f(0, top + panY)
-        glEnd()
-        glPopMatrix()
-
-    def desenhaGrid(self, left, right, bottom, top, panX, panY):
-        if not self.SHOW_GRID: 
-            return
-        glPushMatrix()
-        glColor3f(0.15, 0.15, 0.15)
-        glLineWidth(1)
-
-        w = (right - left)
-        h = (top - bottom)
-        sx = self.nice_step(w)
-        sy = self.nice_step(h)
-
-        x0 = math.floor((left + panX) / sx) * sx
-        x = x0
-        glBegin(GL_LINES)
-        while x <= right + panX + 1e-6:
-            glVertex2f(x, bottom + panY); glVertex2f(x, top + panY)
-            x += sx
-        y0 = math.floor((bottom + panY) / sy) * sy
-        y = y0
-        while y <= top + panY + 1e-6:
-            glVertex2f(left + panX, y); glVertex2f(right + panX, y)
-            y += sy
-        glEnd()
-        glPopMatrix()
-
     def desenhaBBox(self):
         if not self.SHOW_BBOX:
             return

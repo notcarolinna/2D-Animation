@@ -1,63 +1,90 @@
 import re
-from typing import List, Tuple
+import os
 
-class Coordinate:
-    def __init__(self, x: int, y: int, f: int):
-        self.x = x
-        self.y = y
-        self.f = f
-
-class Entity:
-    def __init__(self, frames_count: int, coordinates: List[Coordinate]):
-        self.frames_count = frames_count
-        self.coordinates = coordinates
-
-class PathsData:
-    def __init__(self, scale: int, entities: List[Entity]):
-        self.scale = scale
-        self.entities = entities
-
-PAT_SCALE  = re.compile(r"\[\s*(\d+)\s*\]")   
-PAT_HEADER = re.compile(r"^\s*(\d+)\s*")                  
-PAT_TRIPLE = re.compile(r"\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)") 
-
-def parse_paths_file(path: str) -> PathsData:
-    entities: List[Entity] = []
-    scale: int | None = None
-
-    with open(path, "r", encoding="utf-8") as f:
-        lines = f.readlines()
-
-    for ln in lines:
-        m = PAT_SCALE.search(ln)
-        if m:
-            scale = int(m.group(1))
-            break
-    if scale is None:
-        raise ValueError("Escala não encontrada no arquivo (formato [XXX]).")
-
-    for idx, ln in enumerate(lines, start=1):
-        if "(" not in ln:  
-            continue
-
-        h = PAT_HEADER.match(ln)
-        if not h:
-            continue
-
-        frames_count = int(h.group(1))
-        triples = PAT_TRIPLE.findall(ln)
-        if not triples:
-            continue
-
-        pts = [Coordinate(int(x), int(y), int(fr)) for (x, y, fr) in triples]
-        if len(pts) != frames_count:
-            print(f"linha {idx}: frames declarados={frames_count}, lidos={len(pts)}.")
-
-        entities.append(Entity(frames_count=frames_count, coordinates=pts))
-
-    return PathsData(scale=scale, entities=entities)
-
-def entity_bbox(coordinates: List[Coordinate]) -> Tuple[int, int, int, int]:
-    xs = [p.x for p in coordinates]
-    ys = [p.y for p in coordinates]
-    return min(xs), min(ys), max(xs), max(ys)
+class Reader:
+    def __init__(self, paths_file="./resources/Paths_D.txt"):
+        self.paths_file = paths_file
+        self.scale = None
+        self.entities = []
+        self.load_data()
+    
+    def load_data(self):
+        print(f"DEBUG: Carregando arquivo: {self.paths_file}")
+        
+        if not os.path.exists(self.paths_file):
+            print(f"ERRO: Arquivo {self.paths_file} não encontrado!")
+            return
+        
+        with open(self.paths_file, 'r') as file:
+            lines = file.readlines()
+        
+        print(f"DEBUG: Arquivo carregado com {len(lines)} linhas")
+        
+        scale_match = re.search(r'\[(\d+)\]', lines[0])
+        if scale_match:
+            self.scale = int(scale_match.group(1))
+            print(f"DEBUG: Escala encontrada: {self.scale}")
+        else:
+            print("ERRO: Escala não encontrada na primeira linha!")
+            return
+        
+        entity_pattern = re.compile(r'(\d+)\s+(.+)')
+        point_pattern = re.compile(r'\((\d+),(\d+),(\d+)\)')
+        
+        for i, line in enumerate(lines[1:], 1): 
+            line = line.strip()
+            if not line:
+                continue
+                
+            match = entity_pattern.match(line)
+            if not match:
+                continue
+            
+            num_points = int(match.group(1))
+            coordinates_str = match.group(2)
+            
+            points = point_pattern.findall(coordinates_str)
+            
+            if len(points) != num_points:
+                print(f"DEBUG: Entidade {len(self.entities)}: esperado {num_points} pontos, encontrado {len(points)}")
+            
+            trajectory = []
+            for x, y, f in points:
+                norm_x = int(x) / self.scale
+                norm_y = int(y) / self.scale
+                trajectory.append([norm_x, norm_y])
+            
+            self.entities.append(trajectory)
+            
+            print(f"DEBUG: Entidade {len(self.entities)-1}: {len(trajectory)} pontos")
+            if trajectory:
+                print(f"DEBUG: Primeiro ponto: {trajectory[0]}")
+                print(f"DEBUG: Último ponto: {trajectory[-1]}")
+        
+        print(f"DEBUG: Total de {len(self.entities)} entidades carregadas")
+    
+    def get_entity_trajectory(self, entity_index):
+        print(f"DEBUG: Solicitando trajetória da entidade {entity_index}")
+        
+        if entity_index < len(self.entities):
+            trajectory = self.entities[entity_index]
+            print(f"DEBUG: Retornando {len(trajectory)} pontos para entidade {entity_index}")
+            return trajectory
+        else:
+            print(f"DEBUG: Entidade {entity_index} não existe (total: {len(self.entities)})")
+            return []
+    
+    def get_all_entities_count(self):
+        return len(self.entities)
+    
+    def print_entities_summary(self):
+        print(f"\n=== RESUMO DAS ENTIDADES ===")
+        print(f"Arquivo: {self.paths_file}")
+        print(f"Escala: {self.scale}")
+        print(f"Total de entidades: {len(self.entities)}")
+        
+        for i, entity in enumerate(self.entities):
+            print(f"Entidade {i}: {len(entity)} pontos")
+            if entity:
+                print(f"  Primeiro: {entity[0]}")
+                print(f"  Último: {entity[-1]}")

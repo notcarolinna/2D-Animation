@@ -219,7 +219,7 @@ def draw_sun(cx, cy, r):
     set_color(1.00,0.60,0.10,0.28); ellipse(cx+0.15*r, cy-0.30*r, 0.55*r, 0.15*r, True)
     end_clip()
     set_color(1.00, 0.92, 0.50, 0.35); circle(cx, cy, 0.75*r, True, 96)
-    radial_shade(cx, cy, r, 0.0, 0.15)
+    radial_shade(cx, cy, r, 0.0, 0.25)
 
 def draw_mercury(cx, cy, r):
     set_color(*C["mercury"]); circle(cx, cy, r, True)
