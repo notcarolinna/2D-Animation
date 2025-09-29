@@ -73,13 +73,12 @@ end_clip = DrawingUtils.end_clip
 with_pose = DrawingUtils.with_pose
 end_pose = DrawingUtils.end_pose
 
-# Definir edge_ring fora da classe Planet
 def edge_ring(cx, cy, r, k=0.985, rgba=(1,1,1,0.20)):
     set_color(*rgba)
     ring(cx, cy, r*k, r, seg=140)
 
-class Comet:
-    def __init__(self, x=0, y=0, vx=0, vy=0, size=0.1, tail_length=20):
+class Star:
+    def __init__(self, x=0, y=0, vx=0, vy=0, size=0.05, tail_length=20):  # Mudei de 0.1 para 0.05
         self.x = x
         self.y = y
         self.vx = vx
@@ -89,13 +88,13 @@ class Comet:
         self.tail_positions = [(x, y)]
         self.brightness = 1.0
         self.life_time = 0.0
+        self.twinkle_offset = 0.0
         
     def update(self, dt):
-        """Método vazio - sem movimento automático"""
-        pass
+        self.life_time += dt
+        self.twinkle_offset = math.sin(self.life_time * 8.0) * 0.3 + 0.7
         
     def set_position(self, x, y):
-        """Define a posição do cometa (controlado externamente)"""
         self.x = x
         self.y = y
         if len(self.tail_positions) == 0 or \
@@ -107,7 +106,6 @@ class Comet:
             self.tail_positions.pop(0)
     
     def is_visible(self, screen_bounds):
-        """Verifica se o cometa ainda está visível na tela"""
         margin = 2.0
         return (self.x > screen_bounds[0] - margin and 
                 self.x < screen_bounds[1] + margin and
@@ -115,62 +113,63 @@ class Comet:
                 self.y < screen_bounds[3] + margin)
         
     def draw(self):
-        """Desenha o cometa com sua cauda"""
-        self._draw_tail()
-        self._draw_nucleus()
-        self._draw_coma()
+        self._draw_star_trail()
+        self._draw_star_rays()
+        self._draw_star_core()
         
-    def _draw_tail(self):
-        """Desenha a cauda do cometa"""
+    def _draw_star_trail(self):
         if len(self.tail_positions) < 2:
             return
             
-        # Cauda de poeira (amarelada)
         for i in range(len(self.tail_positions) - 1):
             t = i / (len(self.tail_positions) - 1)
-            alpha = t * 0.5 + 0.1
-            width = max(1.0, self.size * 20 * t)
+            alpha = t * 0.6 + 0.1
+            width = max(0.5, self.size * 25 * t)
             
             x1, y1 = self.tail_positions[i]
             x2, y2 = self.tail_positions[i + 1]
             
-            set_color(1.0, 0.9, 0.6, alpha)
+            set_color(1.0, 1.0, 0.9, alpha * self.twinkle_offset)
             line(x1, y1, x2, y2, width)
-            
-        # Cauda de íons (azulada, mais fina)
-        for i in range(len(self.tail_positions) - 1):
-            t = i / (len(self.tail_positions) - 1)
-            alpha = t * 0.4 + 0.05
-            width = max(0.5, self.size * 15 * t)
-            
-            x1, y1 = self.tail_positions[i]
-            x2, y2 = self.tail_positions[i + 1]
-            
-            offset_x = 0.02 * (1 - t)
-            offset_y = 0.01 * (1 - t)
-            
-            set_color(0.6, 0.8, 1.0, alpha)
-            line(x1 + offset_x, y1 + offset_y, x2 + offset_x, y2 + offset_y, width)
     
-    def _draw_nucleus(self):
-        """Desenha o núcleo rochoso do cometa"""
-        set_color(0.4, 0.3, 0.2, 1.0)
-        circle(self.x, self.y, self.size, True)
+    def _draw_star_rays(self):
+        ray_length = self.size * 4  # Mudei de 6 para 4 - raios menores
+        brightness = self.brightness * self.twinkle_offset
         
-        set_color(0.2, 0.15, 0.1, 0.8)
-        circle(self.x - self.size * 0.3, self.y + self.size * 0.2, self.size * 0.2, True)
-        circle(self.x + self.size * 0.2, self.y - self.size * 0.3, self.size * 0.15, True)
+        set_color(1.0, 1.0, 0.8, 0.8 * brightness)
+        
+        angles = [0, 45, 90, 135, 180, 225, 270, 315]
+        for angle in angles:
+            rad = math.radians(angle)
+            dx = math.cos(rad) * ray_length
+            dy = math.sin(rad) * ray_length
+            
+            line(self.x, self.y, self.x + dx, self.y + dy, 2.0)  # Mudei de 3.0 para 2.0
+        
+        short_ray_length = self.size * 2  # Mudei de 3 para 2
+        for i in range(8):
+            angle = 22.5 + i * 45
+            rad = math.radians(angle)
+            dx = math.cos(rad) * short_ray_length
+            dy = math.sin(rad) * short_ray_length
+            
+            set_color(1.0, 0.95, 0.7, 0.5 * brightness)
+            line(self.x, self.y, self.x + dx, self.y + dy, 1.0)  # Mudei de 1.5 para 1.0
     
-    def _draw_coma(self):
-        """Desenha a coma (atmosfera brilhante) ao redor do núcleo"""
-        set_color(1.0, 1.0, 0.9, 0.3 * self.brightness)
-        circle(self.x, self.y, self.size * 2, True)
+    def _draw_star_core(self):
+        brightness = self.brightness * self.twinkle_offset
         
-        set_color(1.0, 0.9, 0.7, 0.15 * self.brightness)
-        circle(self.x, self.y, self.size * 4, True)
-        
-        set_color(1.0, 1.0, 1.0, 0.6 * self.brightness)
+        set_color(1.0, 1.0, 1.0, 1.0 * brightness)
         circle(self.x, self.y, self.size * 0.8, True)
+        
+        set_color(1.0, 1.0, 0.9, 0.7 * brightness)
+        circle(self.x, self.y, self.size * 1.5, True)
+        
+        set_color(1.0, 0.9, 0.7, 0.4 * brightness)
+        circle(self.x, self.y, self.size * 2.5, True)
+        
+        set_color(1.0, 0.8, 0.6, 0.2 * brightness)
+        circle(self.x, self.y, self.size * 4.0, True)
 
 class Planet:
     def __init__(self, name, x=0, y=0, radius=1.0, color=(1,1,1)):
@@ -300,5 +299,8 @@ def create_planets():
         planets.append(p)
     return planets
 
-def create_comet(x=0, y=0, vx=0, vy=0, size=0.08):
-    return Comet(x, y, vx, vy, size)
+def create_star(x=0, y=0, vx=0, vy=0, size=0.04):  # Mudei de 0.08 para 0.04
+    return Star(x, y, vx, vy, size)
+
+def create_comet(x=0, y=0, vx=0, vy=0, size=0.04):  # Mudei de 0.08 para 0.04
+    return create_star(x, y, vx, vy, size)

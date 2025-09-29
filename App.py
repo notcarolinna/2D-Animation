@@ -5,7 +5,7 @@ from OpenGL.GLUT import *
 from OpenGL.GLU import *
 from OpenGL.GL import *
 
-from Objects import (Planet, create_planets, Comet, create_comet)
+from Objects import (Planet, create_planets, Star, create_star, create_comet)
 from Player import PlayerSystem, Ponto, Quadrado
 from Animation import Animation 
 
@@ -14,71 +14,47 @@ class App:
         self.width = width
         self.height = height
         
-        # Controle de tempo
         self.tempo_anterior = time.time()
         self.tempo_total = 0.0
         self.soma_dt = 0.0
         self.fps_target = 60.0
         
-        # Viewport e câmera
         self.left, self.right = -20.0, 20.0
         self.top, self.bottom = 15.0, -15.0
         self.panX = 0.0
         self.panY = 0.0
         self.zoom = 1.0
         
-        # Estados da aplicação
         self.paused = False
         self.show_planets = True
         self.show_player = True
         
-        # Objetos principais
         self.planets = create_planets()
         
-        # Cometas animados apenas - LIMPO
-        self.comets = []
-        self.create_comets()
+        self.stars = []
+        self.create_stars()
         
-        # Sistema de animação
         self.animation_system = Animation()
         
-        # Configurar animações
         self.setup_animations()
         
-        # Sistema do Player
         self.player_system = PlayerSystem()
 
-    def create_comets(self):
-        """
-        Cria cometas que serão animados pelas entidades - SEM cometas estáticos
-        """
-        # Criar apenas cometas que serão animados
-        comet_count = 4  # Quantidade de cometas
+    def create_stars(self):
+        star_count = 4
         
-        for i in range(comet_count):
-            # Posições iniciais temporárias (serão substituídas pela animação)
+        for i in range(star_count):
             x = 0.0
             y = 0.0
-            size = 0.12 + (i * 0.02)  # Tamanhos variados
+            size = 0.12 + (i * 0.02)
             
-            comet = create_comet(x=x, y=y, size=size)
-            # NÃO adicionar cauda estática - será animada
-            self.comets.append(comet)
+            star = create_star(x=x, y=y, size=size)
+            self.stars.append(star)
 
     def setup_animations(self):
-        """
-        Configura as animações para planetas e cometas
-        """
-        print("DEBUG: Configurando animações...")
-        
-        # Primeiro, animar todos os planetas possíveis
         planets_animated = self.animation_system.setup_planets_animation(self.planets)
-        
-        # Depois, animar os cometas com as entidades restantes
-        comets_animated = self.animation_system.setup_comets_animation(self.comets, planets_animated)
-        
-        total_animated = planets_animated + comets_animated
-        print(f"DEBUG: Total de objetos animados: {total_animated}")
+        stars_animated = self.animation_system.setup_comets_animation(self.stars, planets_animated)
+        total_animated = planets_animated + stars_animated
 
     def set_ortho(self, l, r, b, t):
         self.left, self.right, self.bottom, self.top = l, r, b, t
@@ -92,24 +68,17 @@ class App:
         self.set_ortho(-20.0, 20.0, -15.0, 15.0)
         
     def update_planets(self, delta_time):
-        """
-        Atualiza planetas - pula animação orbital se estiver sendo animado pelo sistema
-        """
         for planet in self.planets:
-            # Verificar se o planeta está sendo animado
             is_animated = planet in self.animation_system.animated_objects.values()
             
             if not is_animated and hasattr(planet, 'orbital_radius') and planet.orbital_radius > 0:
-                # Animação orbital normal
                 planet.orbital_angle += planet.orbital_speed * delta_time
                 planet.x = planet.orbital_radius * math.cos(planet.orbital_angle)
                 planet.y = planet.orbital_radius * math.sin(planet.orbital_angle) * 0.3
             
-            # Atualizar animações internas (rotação, etc.)
             planet.update(delta_time)
     
     def render(self):
-        # Sistema de projeção
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
         gluOrtho2D(self.left + self.panX, self.right + self.panX, 
@@ -123,23 +92,18 @@ class App:
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
-        # Desenhar planetas
         if self.show_planets:
             for planet in self.planets:
                 planet.draw()
         
-        # Desenhar quadrados do Player
         if self.show_player:
             for q in self.player_system.quadrados:
                 self.player_system.desenhaQuadrado(q.pos.x, q.pos.y, q.w, q.h, q.c)
 
-        # Desenhar APENAS cometas animados
-        for comet in self.comets:
-            # Só desenhar se estiver sendo animado
-            if comet in self.animation_system.animated_objects.values():
-                comet.draw()
+        for star in self.stars:
+            if star in self.animation_system.animated_objects.values():
+                star.draw()
                 
-        # overlay: bbox apenas
         self.player_system.desenhaBBox()
         
         glDisable(GL_BLEND)
@@ -162,31 +126,31 @@ class App:
             if self.show_planets:
                 self.update_planets(delta_time)
             
-            # Atualizar sistema de animação
             self.animation_system.update(delta_time)
+            
+            for star in self.stars:
+                star.update(delta_time)
         
         glutPostRedisplay()
     
     def handle_keyboard(self, key, x, y):
-        if key == 27:  # ESC
+        if key == 27:
             sys.exit(0)
         
-        # Controles do Player - apenas WASD
-        elif key == b'w':  # Mover cima
+        elif key == b'w':
             if self.player_system.quadrados:
                 self.player_system.quadrados[self.player_system.num_quadrado].pos += Ponto(0, 0.1)
-        elif key == b's':  # Mover baixo
+        elif key == b's':
             if self.player_system.quadrados:
                 self.player_system.quadrados[self.player_system.num_quadrado].pos -= Ponto(0, 0.1)
-        elif key == b'a':  # Mover esquerda
+        elif key == b'a':
             if self.player_system.quadrados:
                 self.player_system.quadrados[self.player_system.num_quadrado].pos -= Ponto(0.1, 0)
-        elif key == b'd':  # Mover direita
+        elif key == b'd':
             if self.player_system.quadrados:
                 self.player_system.quadrados[self.player_system.num_quadrado].pos += Ponto(0.1, 0)
     
     def handle_special_keys(self, key, x, y):
-        # Manter apenas controles de câmera com setas
         if key == GLUT_KEY_LEFT:  
             self.panX += 0.5
         elif key == GLUT_KEY_RIGHT: 
@@ -197,13 +161,11 @@ class App:
             self.panY += 0.5
     
     def reset_all(self):
-        # Reset geral
         self.tempo_total = 0.0
         self.panX = 0.0
         self.panY = 0.0
         self.zoom = 1.0
         
-        # Reset das animações
         self.animation_system.reset_all()
         
         for planet in self.planets:
@@ -211,7 +173,6 @@ class App:
                 planet.orbital_angle = hash(planet.name) % 100 / 100.0 * 2 * math.pi
                 planet.rotation = 0.0
         
-        # Reinicia sistema do Player
         self.player_system = PlayerSystem()
         self.reset_ortho()
     

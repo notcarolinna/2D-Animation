@@ -89,8 +89,16 @@ class Animation:
         current_point = trajectory[current_index]
         next_point = trajectory[next_index]
         
-        obj.x = current_point[0] + (next_point[0] - current_point[0]) * interpolation_factor
-        obj.y = current_point[1] + (next_point[1] - current_point[1]) * interpolation_factor
+        new_x = current_point[0] + (next_point[0] - current_point[0]) * interpolation_factor
+        new_y = current_point[1] + (next_point[1] - current_point[1]) * interpolation_factor
+        
+        # Para cometas, usar set_position para criar rastro
+        if hasattr(obj, 'set_position'):
+            obj.set_position(new_x, new_y)
+        else:
+            # Para planetas, definir posição diretamente
+            obj.x = new_x
+            obj.y = new_y
     
     def set_enabled(self, enabled):
         self.enabled = enabled
@@ -99,8 +107,11 @@ class Animation:
             for entity_id, obj in self.animated_objects.items():
                 if entity_id in self.original_positions:
                     orig_x, orig_y = self.original_positions[entity_id]
-                    obj.x = orig_x
-                    obj.y = orig_y
+                    if hasattr(obj, 'set_position'):
+                        obj.set_position(orig_x, orig_y)
+                    else:
+                        obj.x = orig_x
+                        obj.y = orig_y
     
     def reset_all(self):
         for entity_id in self.trajectory_indices:
@@ -110,10 +121,23 @@ class Animation:
             for entity_id, obj in self.animated_objects.items():
                 if entity_id in self.original_positions:
                     orig_x, orig_y = self.original_positions[entity_id]
-                    obj.x = orig_x
-                    obj.y = orig_y
+                    if hasattr(obj, 'set_position'):
+                        obj.set_position(orig_x, orig_y)
+                    else:
+                        obj.x = orig_x
+                        obj.y = orig_y
     
     def set_all_speeds(self, new_speed):
         self.default_speed = new_speed
         for entity_id in self.animation_speeds:
             self.animation_speeds[entity_id] = new_speed
+
+    def set_sun(self, sun_object):
+        return self.add_animated_object(0, sun_object, self.default_speed)
+    
+    def set_sun_speed(self, speed):
+        self.set_animation_speed(0, speed)
+    
+    @property
+    def sun(self):
+        return self.animated_objects.get(0, None)
