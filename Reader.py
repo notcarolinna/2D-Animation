@@ -40,7 +40,8 @@ class Reader:
             for x, y, f in points:
                 norm_x = int(x) / self.scale
                 norm_y = int(y) / self.scale
-                trajectory.append([norm_x, norm_y])
+                frame = int(f)
+                trajectory.append([norm_x, norm_y, frame])
             
             self.entities.append(trajectory)
         

@@ -34,7 +34,8 @@ class Animation:
         trajectory = self.reader.get_entity_trajectory(0)
         
         if trajectory:
-            ObjectHandler.set_position(player_obj, *trajectory[0])
+            x, y, _ = trajectory[0]
+            ObjectHandler.set_position(player_obj, x, y)
         
         return 1 if self.add_animated_object(0, player_obj) else 0
     
@@ -50,30 +51,65 @@ class Animation:
         return animated_count
     
     def update(self, delta_time):
+        # Sincroniza todos pelo frame global (baseado em tempo e FPS)
+        if not hasattr(self, 'frame_counter'):
+            self.frame_counter = 0
+            self.time_accum = 0.0
+        self.time_accum += delta_time
+        FPS = 30.0
+        frame_duration = 1.0 / FPS
+        # Descobrir o maior frame final de todas as entidades
+        if not hasattr(self, '_max_frame'):
+            self._max_frame = 0
+            for traj in self.trajectories.values():
+                if traj:
+                    last_f = traj[-1][2]
+                    if last_f > self._max_frame:
+                        self._max_frame = last_f
+        while self.time_accum >= frame_duration:
+            self.time_accum -= frame_duration
+            self.frame_counter += 1
+            if self.frame_counter > self._max_frame:
+                self.frame_counter = 0
         for entity_id in self.animated_objects:
-            if entity_id != 0:  
-                self._update_single_animation(entity_id, delta_time)
+            if entity_id != 0:
+                self._update_single_animation_by_frame(entity_id, self.frame_counter)
     
-    def _update_single_animation(self, entity_id, delta_time):
+    def _update_single_animation_by_frame(self, entity_id, frame):
         obj = self.animated_objects[entity_id]
         trajectory = self.trajectories[entity_id]
-        
-        self.trajectory_indices[entity_id] += self.animation_speeds[entity_id] * delta_time
-        
-        if self.trajectory_indices[entity_id] >= len(trajectory):
-            self.trajectory_indices[entity_id] = 0.0
-        
-        current_index = int(self.trajectory_indices[entity_id])
-        next_index = (current_index + 1) % len(trajectory)
-        t = self.trajectory_indices[entity_id] - current_index
-        
-        current_point = trajectory[current_index]
-        next_point = trajectory[next_index]
-        
-        new_x = current_point[0] + (next_point[0] - current_point[0]) * t
-        new_y = current_point[1] + (next_point[1] - current_point[1]) * t
-        
-        ObjectHandler.set_position(obj, new_x, new_y)
+        first_f = trajectory[0][2]
+        last_f = trajectory[-1][2]
+        # Só desenha/interpola se frame global está entre o primeiro e o último frame da entidade
+        if frame < first_f or frame > last_f:
+            ObjectHandler.set_position(obj, -9999, -9999)
+            return
+        # Busca os dois pontos do dataset que englobam o frame atual
+        prev = None
+        nextp = None
+        for pt in trajectory:
+            if pt[2] == frame:
+                prev = nextp = pt
+                break
+            if pt[2] < frame:
+                prev = pt
+            elif pt[2] > frame:
+                nextp = pt
+                break
+        if prev is None:
+            prev = nextp = trajectory[0]
+        if nextp is None:
+            nextp = prev = trajectory[-1]
+        # Interpola se possível
+        if prev == nextp:
+            x, y, _ = prev
+        else:
+            f0 = prev[2]
+            f1 = nextp[2]
+            t = (frame - f0) / (f1 - f0) if f1 != f0 else 0.0
+            x = prev[0] + (nextp[0] - prev[0]) * t
+            y = prev[1] + (nextp[1] - prev[1]) * t
+        ObjectHandler.set_position(obj, x, y)
     
     def reset_all(self):
         for entity_id in self.trajectory_indices:
