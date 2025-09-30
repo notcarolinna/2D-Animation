@@ -42,16 +42,16 @@ class Animation:
         animated_count = 0
         for i, entity in enumerate(entities):
             entity_id = start_entity_id + i
-            if entity_id < self.total_entities:  # Só anima se houver trajetória
+            if entity_id < self.total_entities:  
                 if self.add_animated_object(entity_id, entity):
                     animated_count += 1
             else:
-                break  # Para de tentar animar se não há mais trajetórias
+                break 
         return animated_count
     
     def update(self, delta_time):
         for entity_id in self.animated_objects:
-            if entity_id != 0:  # Skip player
+            if entity_id != 0:  
                 self._update_single_animation(entity_id, delta_time)
     
     def _update_single_animation(self, entity_id, delta_time):

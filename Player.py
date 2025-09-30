@@ -1,5 +1,7 @@
 import math
+import time
 from OpenGL.GL import *
+from GraphicsUtils import DrawUtils
 
 class Ponto:
     def __init__(self, x: float, y: float):
@@ -14,24 +16,7 @@ class UFO:
         self.radius = radius
         self.c = cor
 
-class GLDraw:
-    def circle(cx, cy, radius, filled=True, segments=32):
-        glBegin(GL_TRIANGLE_FAN if filled else GL_LINE_LOOP)
-        if filled: glVertex2f(cx, cy)
-        for i in range(segments + 1):
-            angle = 2 * math.pi * i / segments
-            glVertex2f(cx + radius * math.cos(angle), cy + radius * math.sin(angle))
-        glEnd()
-
-    def ellipse(cx, cy, width, height, filled=True, segments=32):
-        glBegin(GL_TRIANGLE_FAN if filled else GL_LINE_LOOP)
-        if filled: glVertex2f(cx, cy)
-        for i in range(segments + 1):
-            angle = 2 * math.pi * i / segments
-            glVertex2f(cx + width * math.cos(angle), cy + height * math.sin(angle))
-        glEnd()
-
-    def tractor_beam(radius, time_factor):
+    def draw_tractor_beam(self, radius, time_factor):
         beam_start_y = -radius * 0.3
         beam_width = radius * 0.8 * (math.sin(time_factor * 3) * 0.3 + 0.7)
         beam_end_y = beam_start_y - radius * 1.2
@@ -59,6 +44,43 @@ class GLDraw:
             x_offset = math.sin(time_factor * 2 + i) * beam_width * 0.48 * t
             glVertex2f(x_offset, y)
         glEnd()
+
+    def draw(self, time_factor=0):
+        glPushMatrix()
+        glTranslatef(self.pos.x, self.pos.y, 0)
+        
+        glColor3f(*self.c)
+        DrawUtils.ellipse(0, 0, self.radius, self.radius * 0.3, True, 32)
+        glColor3f(self.c[0] * 0.5, self.c[1] * 0.5, self.c[2] * 0.5)
+        glLineWidth(2)
+        DrawUtils.ellipse(0, 0, self.radius, self.radius * 0.3, False, 32)
+        
+        glColor3f(min(1.0, self.c[0] * 1.3), min(1.0, self.c[1] * 1.3), min(1.0, self.c[2] * 1.3))
+        glBegin(GL_TRIANGLE_FAN)
+        glVertex2f(0, 0)
+        dome_radius = self.radius * 0.6
+        for i in range(33):
+            angle = math.pi * i / 32
+            glVertex2f(dome_radius * math.cos(angle), dome_radius * math.sin(angle))
+        glEnd()
+        
+        glColor3f(self.c[0] * 0.4, self.c[1] * 0.4, self.c[2] * 0.4)
+        glLineWidth(2)
+        glBegin(GL_LINE_STRIP)
+        for i in range(33):
+            angle = math.pi * i / 32
+            glVertex2f(dome_radius * math.cos(angle), dome_radius * math.sin(angle))
+        glEnd()
+        
+        self.draw_tractor_beam(self.radius, time_factor)
+        
+        glColor3f(1.0, 1.0, 0.0)
+        for i in range(6):
+            angle = 2 * math.pi * i / 6
+            DrawUtils.circle(self.radius * 0.8 * math.cos(angle), self.radius * 0.1 * math.sin(angle), 
+                         self.radius * 0.05, True, 8)
+
+        glPopMatrix()
 
 class PlayerSystem:
     def __init__(self):
@@ -89,7 +111,7 @@ class PlayerSystem:
     def render(self, tempo_total):
         if self.show_player:
             for q in self.quadrados:
-                self.desenhaUFO(q.pos.x, q.pos.y, q.radius, q.c, tempo_total)
+                q.draw(tempo_total)
     
     def get_active_ufo(self):
         if self.quadrados:
@@ -112,40 +134,3 @@ class PlayerSystem:
             b'a': (-self.move_speed, 0),
             b'd': (self.move_speed, 0)
         }
-
-    def desenhaUFO(self, x, y, radius, cor=(0.7, 0.7, 0.7), time_factor=0):
-        glPushMatrix()
-        glTranslatef(x, y, 0)
-        
-        glColor3f(*cor)
-        GLDraw.ellipse(0, 0, radius, radius * 0.3, True, 32)
-        glColor3f(cor[0] * 0.5, cor[1] * 0.5, cor[2] * 0.5)
-        glLineWidth(2)
-        GLDraw.ellipse(0, 0, radius, radius * 0.3, False, 32)
-        
-        glColor3f(min(1.0, cor[0] * 1.3), min(1.0, cor[1] * 1.3), min(1.0, cor[2] * 1.3))
-        glBegin(GL_TRIANGLE_FAN)
-        glVertex2f(0, 0)
-        dome_radius = radius * 0.6
-        for i in range(33):
-            angle = math.pi * i / 32
-            glVertex2f(dome_radius * math.cos(angle), dome_radius * math.sin(angle))
-        glEnd()
-        
-        glColor3f(cor[0] * 0.4, cor[1] * 0.4, cor[2] * 0.4)
-        glLineWidth(2)
-        glBegin(GL_LINE_STRIP)
-        for i in range(33):
-            angle = math.pi * i / 32
-            glVertex2f(dome_radius * math.cos(angle), dome_radius * math.sin(angle))
-        glEnd()
-        
-        GLDraw.tractor_beam(radius, time_factor)
-        
-        glColor3f(1.0, 1.0, 0.0)
-        for i in range(6):
-            angle = 2 * math.pi * i / 6
-            GLDraw.circle(radius * 0.8 * math.cos(angle), radius * 0.1 * math.sin(angle), 
-                         radius * 0.05, True, 8)
-
-        glPopMatrix()
