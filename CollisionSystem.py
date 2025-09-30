@@ -14,25 +14,13 @@ class ObjectHandler:
         if hasattr(obj, 'size'):
             return obj.size * 3.0
         if hasattr(obj, 'radius'):
-            multipliers = {
-                'sun': 1.3, 'saturn': 2.0, 'jupiter': 1.2, 'earth': 1.1
-            }
-            name = getattr(obj, 'name', '').lower()
-            return obj.radius * multipliers.get(name, 1.05)
+            return obj.radius * 1.1
         if hasattr(obj, 'w'):
             return max(obj.w, obj.h) / 2 * 1.1
         return 0.5
     
     def get_mass(obj):
-        if hasattr(obj, 'name'):
-            masses = {
-                'sun': 15.0, 'jupiter': 8.0, 'saturn': 6.0, 'neptune': 4.0,
-                'uranus': 4.0, 'earth': 2.5, 'venus': 2.4, 'mars': 1.5, 'mercury': 1.0
-            }
-            return masses.get(obj.name.lower(), 2.0)
-        if hasattr(obj, 'size'):
-            return obj.size * 0.8
-        return 1.8
+        return 2.0
 
 class CollisionSystem:
     def __init__(self):
@@ -54,7 +42,6 @@ class CollisionSystem:
         x1, y1 = ObjectHandler.get_pos(obj1)
         x2, y2 = ObjectHandler.get_pos(obj2)
         r1, r2 = ObjectHandler.get_radius(obj1), ObjectHandler.get_radius(obj2)
-        m1, m2 = ObjectHandler.get_mass(obj1), ObjectHandler.get_mass(obj2)
         
         dx, dy = x2 - x1, y2 - y1
         dist = math.sqrt(dx*dx + dy*dy)
@@ -67,19 +54,14 @@ class CollisionSystem:
         overlap = min_dist - dist
         
         if overlap > 0:
-            total_mass = m1 + m2
-            force1 = overlap * self.repulsion_force * (m2 / total_mass) * 0.8
-            force2 = overlap * self.repulsion_force * (m1 / total_mass) * 0.8
+            force = overlap * self.repulsion_force * 0.5
+            max_move = 0.8
             
-            max_move1, max_move2 = 0.8 / math.sqrt(m1), 0.8 / math.sqrt(m2)
+            move_x = max(-max_move, min(max_move, force))
+            move_y = max(-max_move, min(max_move, force))
             
-            move1_x = max(-max_move1, min(max_move1, -dx * force1))
-            move1_y = max(-max_move1, min(max_move1, -dy * force1))
-            move2_x = max(-max_move2, min(max_move2, dx * force2))
-            move2_y = max(-max_move2, min(max_move2, dy * force2))
-            
-            ObjectHandler.set_pos(obj1, x1 + move1_x, y1 + move1_y)
-            ObjectHandler.set_pos(obj2, x2 + move2_x, y2 + move2_y)
+            ObjectHandler.set_pos(obj1, x1 - dx * move_x, y1 - dy * move_y)
+            ObjectHandler.set_pos(obj2, x2 + dx * move_x, y2 + dy * move_y)
     
     def update_collisions(self, objects):
         for i in range(len(objects)):

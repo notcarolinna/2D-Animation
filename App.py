@@ -6,7 +6,7 @@ from OpenGL.GLUT import *
 from OpenGL.GLU import *
 from OpenGL.GL import *
 
-from Objects import create_planets, create_star
+from Objects import create_planets, create_star, create_entities_for_animation, BackgroundStars
 from Player import PlayerSystem, Ponto
 from Animation import Animation 
 from CollisionSystem import CollisionSystem
@@ -22,23 +22,19 @@ class App:
         self.tempo_anterior = time.time()
         self.tempo_total = 0.0
         
-        self.planets = create_planets()
-        self.stars = [create_star(0, 0, 0, 0, 0.12 + i * 0.02) for i in range(4)]
-        self.background_stars = self._create_background_stars()
-        
         self.player_system = PlayerSystem()
         self.animation_system = Animation()
         self.collision_system = CollisionSystem()
         
+        total_entities = self.animation_system.total_entities
+        self.animated_entities = create_entities_for_animation(total_entities)
+        
+        self.planets = create_planets()
+        self.stars = [create_star(0, 0, 0, 0, 0.20 + i * 0.05) for i in range(4)] 
+        self.background_stars = BackgroundStars(count=150, seed=42)
+        
         self.animation_system.setup_player_animation(self.player_system)
-        planets_count = self.animation_system.setup_planets_animation(self.planets, 1)
-        self.animation_system.setup_stars_animation(self.stars, 1 + planets_count)
-
-    def _create_background_stars(self):
-        random.seed(42)
-        return [{'x': random.uniform(-30, 30), 'y': random.uniform(-20, 20),
-                'brightness': random.uniform(0.3, 1.0), 'twinkle_speed': random.uniform(0.5, 2.0)}
-                for _ in range(150)]
+        self.animation_system.setup_entities_animation(self.animated_entities, 1)
 
     def render(self):
         left, right, bottom, top = self.viewport
@@ -54,27 +50,14 @@ class App:
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         
-        # Background stars
-        glPointSize(1.0)
-        glBegin(GL_POINTS)
-        for star in self.background_stars:
-            alpha = star['brightness'] * (math.sin(self.tempo_total * star['twinkle_speed']) * 0.2 + 0.8)
-            glColor4f(1.0, 1.0, 1.0, alpha)
-            glVertex2f(star['x'], star['y'])
-        glEnd()
+        self.background_stars.render(self.tempo_total)
         
-        # Objects
         if self.show_planets:
-            for planet in self.planets:
-                planet.draw()
+            for entity in self.animated_entities:
+                if entity in self.animation_system.animated_objects.values():
+                    entity.draw()
         
-        if self.show_player:
-            for q in self.player_system.quadrados:
-                self.player_system.desenhaUFO(q.pos.x, q.pos.y, q.radius, q.c, self.tempo_total)
-
-        for star in self.stars:
-            if star in self.animation_system.animated_objects.values():
-                star.draw()
+        self.player_system.render(self.tempo_total)
         
         glDisable(GL_BLEND)
         glFlush()
@@ -89,22 +72,17 @@ class App:
         self.tempo_anterior = tempo_atual
         self.tempo_total += delta_time
         
-        for planet in self.planets:
-            planet.update(delta_time)
+        for entity in self.animated_entities:
+            if hasattr(entity, 'update'):
+                entity.update(delta_time)
         
+        self.player_system.update(delta_time)
         self.animation_system.update(delta_time)
         
-        for star in self.stars:
-            star.update(delta_time)
-        
-        # Collisions
-        all_objects = []
-        if self.show_player and self.player_system.quadrados:
-            all_objects.append(self.player_system.quadrados[self.player_system.num_quadrado])
+        all_objects = self.player_system.get_collision_objects()
         if self.show_planets:
-            all_objects.extend(self.planets)
-        all_objects.extend(star for star in self.stars 
-                          if star in self.animation_system.animated_objects.values())
+            all_objects.extend(entity for entity in self.animated_entities 
+                             if entity in self.animation_system.animated_objects.values())
         
         self.collision_system.update_collisions(all_objects)
         glutPostRedisplay()
@@ -113,11 +91,8 @@ class App:
         if key == 27:
             sys.exit(0)
         
-        moves = {b'w': (0, 0.3), b's': (0, -0.3), b'a': (-0.3, 0), b'd': (0.3, 0)}
-        
-        if key in moves and self.player_system.quadrados:
-            dx, dy = moves[key]
-            self.player_system.quadrados[self.player_system.num_quadrado].pos += Ponto(dx, dy)
+        if not self.player_system.handle_keyboard(key):
+            pass
         
     def reshape(self, w, h):
         glViewport(0, 0, w, h)

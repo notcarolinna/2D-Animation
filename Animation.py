@@ -52,13 +52,16 @@ class Animation:
         
         return 1 if self.add_animated_object(0, player_obj) else 0
     
-    def setup_planets_animation(self, planets, start_entity_id=1):
-        return sum(1 for i, planet in enumerate(planets) 
-                  if self.add_animated_object(start_entity_id + i, planet))
-    
-    def setup_stars_animation(self, stars, start_entity_id):
-        return sum(1 for i, star in enumerate(stars) 
-                  if self.add_animated_object(start_entity_id + i, star))
+    def setup_entities_animation(self, entities, start_entity_id=1):
+        animated_count = 0
+        for i, entity in enumerate(entities):
+            entity_id = start_entity_id + i
+            if entity_id < self.total_entities:  # Só anima se houver trajetória
+                if self.add_animated_object(entity_id, entity):
+                    animated_count += 1
+            else:
+                break  # Para de tentar animar se não há mais trajetórias
+        return animated_count
     
     def update(self, delta_time):
         if not self.enabled:

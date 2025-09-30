@@ -107,7 +107,7 @@ class GlowEffect:
             DrawUtils.circle(cx, cy, base_radius * size_mult * size_pulse, True, 64)
 
 class Star:
-    def __init__(self, x=0, y=0, vx=0, vy=0, size=0.03):
+    def __init__(self, x=0, y=0, vx=0, vy=0, size=0.08):  
         self.x, self.y, self.vx, self.vy, self.size = x, y, vx, vy, size
         self.tail_positions = [(x, y)]
         self.life_time = 0.0
@@ -414,8 +414,63 @@ def create_planets():
     ]
     return [Planet(name, x, y, size, COLORS.get(name.lower(), (1,1,1))) for name, x, y, size in cfg]
 
-def create_star(x=0, y=0, vx=0, vy=0, size=0.04):
+def create_entities_for_animation(total_entities):
+    entities = []
+    
+    solar_system_config = [
+        ("Sun", 0.0, 0.0, 1.2), ("Mercury", 2.0, 0.0, 0.3), ("Venus", 3.0, 0.0, 0.4),
+        ("Earth", 4.5, 0.0, 0.5), ("Mars", 6.0, 0.0, 0.4), ("Jupiter", 9.0, 0.0, 1.0),
+        ("Saturn", 12.0, 0.0, 0.8), ("Uranus", 15.0, 0.0, 0.6), ("Neptune", 18.0, 0.0, 0.6)
+    ]
+    
+    for i in range(1, total_entities):
+        if i - 1 < len(solar_system_config):  # i-1 porque pulamos o player
+            name, x, y, size = solar_system_config[i - 1]
+            planet = Planet(name, x, y, size, COLORS.get(name.lower(), (1,1,1)))
+            entities.append(planet)
+        else:
+            import random
+            size = random.uniform(0.08, 0.15)  # Aumentado de (0.03, 0.08) para (0.08, 0.15)
+            star = Star(0, 0, 0, 0, size)
+            entities.append(star)
+    
+    return entities
+
+def create_star(x=0, y=0, vx=0, vy=0, size=0.10):  # Aumentado de 0.04 para 0.10
     return Star(x, y, vx, vy, size)
 
-def create_comet(x=0, y=0, vx=0, vy=0, size=0.04):
+def create_comet(x=0, y=0, vx=0, vy=0, size=0.10):  # Aumentado de 0.04 para 0.10
     return create_star(x, y, vx, vy, size)
+
+class BackgroundStars:
+    """Gerencia as estrelas de fundo estáticas"""
+    def __init__(self, count=150, seed=42):
+        self.count = count
+        self.seed = seed
+        self.stars = self._create_stars()
+        self.point_size = 2.5
+    
+    def _create_stars(self):
+        import random
+        random.seed(self.seed)
+        return [{'x': random.uniform(-30, 30), 'y': random.uniform(-20, 20),
+                'brightness': random.uniform(0.3, 1.0), 
+                'twinkle_speed': random.uniform(0.5, 2.0)}
+                for _ in range(self.count)]
+    
+    def render(self, tempo_total):
+        """Renderiza todas as estrelas de fundo"""
+        from OpenGL.GL import glPointSize, glBegin, glEnd, glColor4f, glVertex2f, GL_POINTS
+        import math
+        
+        glPointSize(self.point_size)
+        glBegin(GL_POINTS)
+        for star in self.stars:
+            alpha = star['brightness'] * (math.sin(tempo_total * star['twinkle_speed']) * 0.2 + 0.8)
+            glColor4f(1.0, 1.0, 1.0, alpha)
+            glVertex2f(star['x'], star['y'])
+        glEnd()
+    
+    def set_point_size(self, size):
+        """Define o tamanho dos pontos das estrelas"""
+        self.point_size = size

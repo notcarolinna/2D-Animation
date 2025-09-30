@@ -12,11 +12,9 @@ class UFO:
     def __init__(self, radius=0.8, cor=(0.7, 0.7, 0.7)): 
         self.pos = Ponto(0, 0)
         self.radius = radius
-        self.w, self.h = radius * 2, radius * 1.2
         self.c = cor
 
 class GLDraw:
-    @staticmethod
     def circle(cx, cy, radius, filled=True, segments=32):
         glBegin(GL_TRIANGLE_FAN if filled else GL_LINE_LOOP)
         if filled: glVertex2f(cx, cy)
@@ -25,7 +23,6 @@ class GLDraw:
             glVertex2f(cx + radius * math.cos(angle), cy + radius * math.sin(angle))
         glEnd()
 
-    @staticmethod
     def ellipse(cx, cy, width, height, filled=True, segments=32):
         glBegin(GL_TRIANGLE_FAN if filled else GL_LINE_LOOP)
         if filled: glVertex2f(cx, cy)
@@ -34,7 +31,6 @@ class GLDraw:
             glVertex2f(cx + width * math.cos(angle), cy + height * math.sin(angle))
         glEnd()
 
-    @staticmethod
     def tractor_beam(radius, time_factor):
         beam_start_y = -radius * 0.3
         beam_width = radius * 0.8 * (math.sin(time_factor * 3) * 0.3 + 0.7)
@@ -68,6 +64,54 @@ class PlayerSystem:
     def __init__(self):
         self.quadrados = [UFO(0.8)]
         self.num_quadrado = 0
+        self.show_player = True
+        
+        self.move_speed = 0.3
+        self.controls = {
+            b'w': (0, self.move_speed),
+            b's': (0, -self.move_speed),
+            b'a': (-self.move_speed, 0),
+            b'd': (self.move_speed, 0)
+        }
+    
+    def handle_keyboard(self, key):
+        if key in self.controls and self.quadrados:
+            dx, dy = self.controls[key]
+            self.quadrados[self.num_quadrado].pos += Ponto(dx, dy)
+            return True
+        return False
+    
+    def update(self, delta_time):
+        for ufo in self.quadrados:
+            if hasattr(ufo, 'update'):
+                ufo.update(delta_time)
+    
+    def render(self, tempo_total):
+        if self.show_player:
+            for q in self.quadrados:
+                self.desenhaUFO(q.pos.x, q.pos.y, q.radius, q.c, tempo_total)
+    
+    def get_active_ufo(self):
+        if self.quadrados:
+            return self.quadrados[self.num_quadrado]
+        return None
+    
+    def get_collision_objects(self):
+        if self.show_player and self.quadrados:
+            return [self.quadrados[self.num_quadrado]]
+        return []
+    
+    def toggle_visibility(self):
+        self.show_player = not self.show_player
+    
+    def set_move_speed(self, speed):
+        self.move_speed = speed
+        self.controls = {
+            b'w': (0, self.move_speed),
+            b's': (0, -self.move_speed),
+            b'a': (-self.move_speed, 0),
+            b'd': (self.move_speed, 0)
+        }
 
     def desenhaUFO(self, x, y, radius, cor=(0.7, 0.7, 0.7), time_factor=0):
         glPushMatrix()
@@ -75,7 +119,6 @@ class PlayerSystem:
         
         glColor3f(*cor)
         GLDraw.ellipse(0, 0, radius, radius * 0.3, True, 32)
-        
         glColor3f(cor[0] * 0.5, cor[1] * 0.5, cor[2] * 0.5)
         glLineWidth(2)
         GLDraw.ellipse(0, 0, radius, radius * 0.3, False, 32)
