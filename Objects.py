@@ -111,7 +111,7 @@ class Star:
         self.x, self.y, self.vx, self.vy, self.size = x, y, vx, vy, size
         self.tail_positions = [(x, y)]
         self.life_time = 0.0
-        self.core_size = size * 0.4
+        self.core_size = size * 0.9
         self.tail_length = 35
         self.pulse = PulseEffect(6.0, 0.2, 0.8)
         

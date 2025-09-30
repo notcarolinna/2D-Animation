@@ -16,7 +16,6 @@ class App:
         self.viewport = (-20.0, 20.0, -15.0, 15.0)
         self.panX = self.panY = 0.0
         
-        self.paused = False
         self.show_planets = True
         self.show_player = True
         self.tempo_anterior = time.time()
@@ -63,10 +62,6 @@ class App:
         glFlush()
     
     def update(self):
-        if self.paused:
-            glutPostRedisplay()
-            return
-            
         tempo_atual = time.time()
         delta_time = tempo_atual - self.tempo_anterior
         self.tempo_anterior = tempo_atual

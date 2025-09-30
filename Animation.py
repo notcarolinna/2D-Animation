@@ -19,8 +19,6 @@ class Animation:
         self.trajectories = {}
         self.trajectory_indices = {}
         self.animation_speeds = {}
-        self.original_positions = {}
-        self.enabled = True
         self.total_entities = self.reader.get_all_entities_count()
         self.default_speed = 30.0
     
@@ -32,7 +30,6 @@ class Animation:
         if not trajectory:
             return False
         
-        self.original_positions[entity_id] = ObjectHandler.get_position(obj)
         self.animated_objects[entity_id] = obj
         self.trajectories[entity_id] = trajectory
         self.trajectory_indices[entity_id] = 0.0
@@ -64,9 +61,6 @@ class Animation:
         return animated_count
     
     def update(self, delta_time):
-        if not self.enabled:
-            return
-        
         for entity_id in self.animated_objects:
             if entity_id != 0:  # Skip player
                 self._update_single_animation(entity_id, delta_time)
@@ -92,22 +86,9 @@ class Animation:
         
         ObjectHandler.set_position(obj, new_x, new_y)
     
-    def set_enabled(self, enabled):
-        self.enabled = enabled
-        if not enabled:
-            self._reset_to_original_positions()
-    
-    def _reset_to_original_positions(self):
-        for entity_id, obj in self.animated_objects.items():
-            if entity_id in self.original_positions:
-                ObjectHandler.set_position(obj, *self.original_positions[entity_id])
-    
     def reset_all(self):
         for entity_id in self.trajectory_indices:
             self.trajectory_indices[entity_id] = 0.0
-        
-        if not self.enabled:
-            self._reset_to_original_positions()
     
     def set_all_speeds(self, new_speed):
         self.default_speed = new_speed
