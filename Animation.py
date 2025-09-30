@@ -1,16 +1,5 @@
 from Reader import Reader
-
-class ObjectHandler:
-    def get_position(obj):
-        return (obj.pos.x, obj.pos.y) if hasattr(obj, 'pos') else (obj.x, obj.y)
-    
-    def set_position(obj, x, y):
-        if hasattr(obj, 'set_position'):
-            obj.set_position(x, y)
-        elif hasattr(obj, 'pos'):
-            obj.pos.x, obj.pos.y = x, y
-        else:
-            obj.x, obj.y = x, y
+from ObjectHandler import ObjectHandler
 
 class Animation:
     def __init__(self, paths_file=None):
