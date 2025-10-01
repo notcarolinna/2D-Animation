@@ -51,14 +51,12 @@ class Animation:
         return animated_count
     
     def update(self, delta_time):
-        # Sincroniza todos pelo frame global (baseado em tempo e FPS)
         if not hasattr(self, 'frame_counter'):
             self.frame_counter = 0
             self.time_accum = 0.0
         self.time_accum += delta_time
         FPS = 30.0
         frame_duration = 1.0 / FPS
-        # Descobrir o maior frame final de todas as entidades
         if not hasattr(self, '_max_frame'):
             self._max_frame = 0
             for traj in self.trajectories.values():
@@ -80,11 +78,9 @@ class Animation:
         trajectory = self.trajectories[entity_id]
         first_f = trajectory[0][2]
         last_f = trajectory[-1][2]
-        # Só desenha/interpola se frame global está entre o primeiro e o último frame da entidade
         if frame < first_f or frame > last_f:
             ObjectHandler.set_position(obj, -9999, -9999)
             return
-        # Busca os dois pontos do dataset que englobam o frame atual
         prev = None
         nextp = None
         for pt in trajectory:
@@ -100,7 +96,6 @@ class Animation:
             prev = nextp = trajectory[0]
         if nextp is None:
             nextp = prev = trajectory[-1]
-        # Interpola se possível
         if prev == nextp:
             x, y, _ = prev
         else:

@@ -39,7 +39,7 @@ class GlowEffect:
             DrawUtils.circle(cx, cy, base_radius * size_mult * size_pulse, True, 64)
 
 class Star:
-    def __init__(self, x=0, y=0, vx=0, vy=0, size=0.08):  
+    def __init__(self, x=0, y=0, vx=0, vy=0, size=0.15):  
         self.x, self.y, self.vx, self.vy, self.size = x, y, vx, vy, size
         self.tail_positions = [(x, y)]
         self.life_time = 0.0
@@ -49,6 +49,11 @@ class Star:
         
     def update(self, dt):
         self.life_time += dt
+        # Atualizar posição com velocidade
+        self.x += self.vx * dt
+        self.y += self.vy * dt
+        # Atualizar rastro
+        self.set_position(self.x, self.y)
         
     def set_position(self, x, y):
         self.x, self.y = x, y
@@ -71,9 +76,8 @@ class Star:
             alpha = (t ** 1.5) * 0.7 * brightness
             width = max(0.3, self.size * 20 * (t ** 0.7))
             
-            if t > 0.7: r, g, b = 1.0, 0.6, 0.3
-            elif t > 0.4: r, g, b = 1.0, 0.9, 0.7
-            else: r, g, b = 0.9, 0.95, 1.0
+            # Rastro branco puro
+            r, g, b = 1.0, 1.0, 1.0
             
             DrawUtils.set_color(r, g, b, alpha)
             DrawUtils.line(*self.tail_positions[i], *self.tail_positions[i + 1], width)
@@ -86,9 +90,10 @@ class Star:
             DrawUtils.circle(self.x, self.y, self.size * layer * 1.8, True, 64)
     
     def _draw_core(self, brightness):
+        # Núcleo branco brilhante
         core_layers = [(1.0, 1.0, 1.0, brightness), 
-                      (1.0, 1.0, 0.9, brightness * 1.2), 
-                      (1.0, 0.95, 0.8, brightness * 1.5)]
+                      (1.0, 1.0, 1.0, brightness * 1.2), 
+                      (1.0, 1.0, 1.0, brightness * 1.5)]
         sizes = [self.core_size, self.core_size * 0.6, self.core_size * 0.3]
         segs = [32, 16, 12]
         
@@ -101,12 +106,13 @@ class BackgroundStars:
         self.count = count
         self.seed = seed
         self.stars = self._create_stars()
-        self.point_size = 2.5
+        self.point_size = 3.0  # Pontos maiores para melhor visibilidade
     
     def _create_stars(self):
         import random
         random.seed(self.seed)
-        return [{'x': random.uniform(-30, 30), 'y': random.uniform(-20, 20),
+        # Expandir para cobrir uma área muito maior que o viewport
+        return [{'x': random.uniform(-150, 150), 'y': random.uniform(-120, 120),
                 'brightness': random.uniform(0.3, 1.0), 
                 'twinkle_speed': random.uniform(0.5, 2.0)}
                 for _ in range(self.count)]
@@ -397,8 +403,277 @@ def create_entities_for_animation(total_entities):
     
     return entities
 
-def create_star(x=0, y=0, vx=0, vy=0, size=0.10): 
+def create_star(x=0, y=0, vx=0, vy=0, size=0.15): 
     return Star(x, y, vx, vy, size)
 
 def create_comet(x=0, y=0, vx=0, vy=0, size=0.10):  
     return create_star(x, y, vx, vy, size)
+
+class FireSun:
+    def __init__(self, x=0, y=0, size=3.5):
+        self.x = x
+        self.y = y
+        self.size = size
+        self.time = 0.0
+        self.flame_particles = []
+        self.magma_bubbles = []
+        self.corona_streams = []
+        self.surface_waves = []
+        self._init_flame_particles()
+        self._init_magma_bubbles()
+        self._init_corona_streams()
+        self._init_surface_waves()
+        
+    def _init_flame_particles(self):
+        import random
+        # Partículas de fogo externas - mais numerosas
+        for _ in range(80):
+            angle = random.uniform(0, 2 * math.pi)
+            distance = random.uniform(1.0, 1.8) * self.size
+            self.flame_particles.append({
+                'angle': angle,
+                'base_distance': distance,
+                'distance': distance,
+                'speed': random.uniform(0.8, 3.0),
+                'intensity': random.uniform(0.4, 1.0),
+                'size': random.uniform(0.08, 0.4),
+                'flicker_speed': random.uniform(2.0, 8.0),
+                'wave_offset': random.uniform(0, 2 * math.pi)
+            })
+    
+    def _init_magma_bubbles(self):
+        import random
+        # Bolhas de magma na superfície
+        for _ in range(60):
+            angle = random.uniform(0, 2 * math.pi)
+            distance = random.uniform(0.3, 0.9) * self.size
+            size = random.uniform(0.05, 0.2)
+            self.magma_bubbles.append({
+                'angle': angle,
+                'distance': distance,
+                'size': size,
+                'current_size': size,  # Inicializar current_size
+                'intensity': random.uniform(0.6, 1.0),
+                'bubble_speed': random.uniform(0.2, 1.0),
+                'growth_phase': random.uniform(0, 2 * math.pi)
+            })
+    
+    def _init_corona_streams(self):
+        import random
+        # Fluxos de corona solar
+        for _ in range(25):
+            angle = random.uniform(0, 2 * math.pi)
+            self.corona_streams.append({
+                'angle': angle,
+                'length': random.uniform(2.0, 4.0) * self.size,
+                'width': random.uniform(0.1, 0.3),
+                'intensity': random.uniform(0.3, 0.8),
+                'flow_speed': random.uniform(0.5, 2.0),
+                'segments': random.randint(8, 15)
+            })
+    
+    def _init_surface_waves(self):
+        import random
+        # Ondas na superfície solar
+        for _ in range(40):
+            self.surface_waves.append({
+                'angle': random.uniform(0, 2 * math.pi),
+                'amplitude': random.uniform(0.1, 0.3),
+                'frequency': random.uniform(1.0, 4.0),
+                'phase': random.uniform(0, 2 * math.pi),
+                'speed': random.uniform(0.5, 2.0)
+            })
+    
+    def update(self, dt):
+        self.time += dt
+        
+        # Atualizar partículas de fogo
+        for particle in self.flame_particles:
+            particle['angle'] += particle['speed'] * dt
+            wave = math.sin(self.time * particle['flicker_speed'] + particle['wave_offset'])
+            particle['distance'] = particle['base_distance'] * (1.0 + 0.3 * wave)
+            particle['intensity'] = max(0.2, particle['intensity'] + 0.1 * wave)
+            
+        # Atualizar bolhas de magma
+        for bubble in self.magma_bubbles:
+            bubble['angle'] += bubble['bubble_speed'] * dt * 0.3
+            bubble['growth_phase'] += dt * 3.0
+            size_mult = 1.0 + 0.4 * math.sin(bubble['growth_phase'])
+            bubble['current_size'] = bubble['size'] * size_mult
+            
+        # Atualizar fluxos de corona
+        for stream in self.corona_streams:
+            stream['angle'] += stream['flow_speed'] * dt * 0.1
+            
+        # Atualizar ondas da superfície
+        for wave in self.surface_waves:
+            wave['phase'] += wave['speed'] * dt
+            
+    def draw(self):
+        # 1. Fluxos de corona (mantidos mas reduzidos)
+        for stream in self.corona_streams:
+            segments = stream['segments']
+            for seg in range(segments):
+                t = seg / segments
+                distance = self.size * 1.1 + t * stream['length'] * 0.5  # Reduzido
+                x = self.x + distance * math.cos(stream['angle'])
+                y = self.y + distance * math.sin(stream['angle'])
+                
+                alpha = stream['intensity'] * (1.0 - t) * 0.2  # Reduzido
+                width = stream['width'] * (1.0 - t * 0.7)
+                
+                DrawUtils.set_color(1.0, 0.9, 0.6, alpha)
+                DrawUtils.circle(x, y, width, True, 8)
+        
+        # 3. Partículas de fogo externas
+        for particle in self.flame_particles:
+            x = self.x + particle['distance'] * math.cos(particle['angle'])
+            y = self.y + particle['distance'] * math.sin(particle['angle'])
+            
+            # Cor baseada na intensidade e distância
+            intensity = particle['intensity']
+            dist_factor = particle['distance'] / (self.size * 1.5)
+            
+            if intensity > 0.8:
+                r, g, b = 1.0, 1.0, 0.3  # Branco-amarelo quente
+            elif intensity > 0.6:
+                r, g, b = 1.0, 0.8, 0.1  # Amarelo-laranja
+            elif intensity > 0.4:
+                r, g, b = 1.0, 0.5, 0.0  # Laranja
+            else:
+                r, g, b = 1.0, 0.2, 0.0  # Vermelho
+                
+            alpha = intensity * (1.0 - dist_factor * 0.5) * 0.8
+            DrawUtils.set_color(r, g, b, alpha)
+            DrawUtils.circle(x, y, particle['size'], True, 12)
+        
+        # 4. Superfície solar com ondas (textura de magma)
+        base_segments = 64
+        for wave in self.surface_waves:
+            for i in range(base_segments):
+                angle = (i / base_segments) * 2 * math.pi
+                wave_effect = wave['amplitude'] * math.sin(angle * wave['frequency'] + wave['phase'])
+                radius = self.size * (0.95 + wave_effect)
+                
+                x = self.x + radius * math.cos(angle)
+                y = self.y + radius * math.sin(angle)
+                
+                # Cor variável da superfície
+                heat = 0.8 + 0.2 * math.sin(self.time * 2 + angle * 3)
+                r = 1.0
+                g = 0.3 + 0.4 * heat
+                b = 0.0 + 0.2 * heat
+                
+                DrawUtils.set_color(r, g, b, 0.9)
+                DrawUtils.circle(x, y, 0.1, True, 6)
+        
+        # 5. Núcleo solar principal (múltiplas camadas)
+        # Camada externa - laranja escuro
+        DrawUtils.set_color(1.0, 0.4, 0.1, 1.0)
+        DrawUtils.circle(self.x, self.y, self.size * 0.9, True, 64)
+        
+        # Camada intermediária - laranja brilhante
+        pulse1 = 1.0 + 0.08 * math.sin(self.time * 4)
+        DrawUtils.set_color(1.0, 0.6, 0.1, 0.95)
+        DrawUtils.circle(self.x, self.y, self.size * 0.75 * pulse1, True, 64)
+        
+        # Núcleo interno - amarelo quente
+        pulse2 = 1.0 + 0.05 * math.sin(self.time * 6 + 1)
+        DrawUtils.set_color(1.0, 0.9, 0.3, 0.9)
+        DrawUtils.circle(self.x, self.y, self.size * 0.6 * pulse2, True, 64)
+        
+        # Centro - branco quente
+        pulse3 = 1.0 + 0.03 * math.sin(self.time * 8 + 2)
+        DrawUtils.set_color(1.0, 1.0, 0.8, 0.8)
+        DrawUtils.circle(self.x, self.y, self.size * 0.4 * pulse3, True, 32)
+        
+        # 6. Bolhas de magma na superfície
+        for bubble in self.magma_bubbles:
+            x = self.x + bubble['distance'] * math.cos(bubble['angle'])
+            y = self.y + bubble['distance'] * math.sin(bubble['angle'])
+            
+            # Cor da bolha baseada na intensidade
+            intensity = bubble['intensity']
+            bubble_heat = 0.7 + 0.3 * math.sin(self.time * 5 + bubble['angle'])
+            
+            r = 1.0
+            g = 0.2 + 0.3 * bubble_heat
+            b = 0.0
+            alpha = intensity * 0.8
+            
+            DrawUtils.set_color(r, g, b, alpha)
+            DrawUtils.circle(x, y, bubble['current_size'], True, 8)
+
+class AsteroidBelt:
+    def __init__(self, inner_radius=30, outer_radius=36, count=200):
+        self.inner_radius = inner_radius
+        self.outer_radius = outer_radius
+        self.count = count
+        self.asteroids = []
+        self.time = 0.0
+        self._create_asteroids()
+    
+    def _create_asteroids(self):
+        import random
+        for i in range(self.count):
+            # Posição orbital aleatória
+            angle = random.uniform(0, 2 * math.pi)
+            distance = random.uniform(self.inner_radius, self.outer_radius)
+            
+            # Velocidade orbital (mais lenta que planetas)
+            orbital_speed = random.uniform(0.1, 0.3) / distance  # Mais distante = mais lento
+            
+            # Características do asteróide
+            size = random.uniform(0.03, 0.12)
+            brightness = random.uniform(0.4, 0.8)
+            
+            asteroid = {
+                'angle': angle,
+                'distance': distance,
+                'orbital_speed': orbital_speed,
+                'size': size,
+                'brightness': brightness,
+                'rotation': random.uniform(0, 2 * math.pi),
+                'rotation_speed': random.uniform(-2, 2)
+            }
+            self.asteroids.append(asteroid)
+    
+    def update(self, dt):
+        self.time += dt
+        for asteroid in self.asteroids:
+            # Movimento orbital
+            asteroid['angle'] += asteroid['orbital_speed'] * dt
+            # Rotação individual
+            asteroid['rotation'] += asteroid['rotation_speed'] * dt
+    
+    def draw(self):
+        for asteroid in self.asteroids:
+            # Calcular posição
+            x = asteroid['distance'] * math.cos(asteroid['angle'])
+            y = asteroid['distance'] * math.sin(asteroid['angle'])
+            
+            # Cor acinzentada dos asteróides
+            brightness = asteroid['brightness']
+            r = 0.6 * brightness
+            g = 0.5 * brightness  
+            b = 0.4 * brightness
+            
+            # Variação sutil de brilho
+            flicker = 1.0 + 0.1 * math.sin(self.time * 3 + asteroid['angle'] * 10)
+            alpha = brightness * flicker * 0.9
+            
+            DrawUtils.set_color(r, g, b, alpha)
+            
+            # Desenhar asteróide como pequeno círculo irregular
+            # Alguns asteróides maiores aparecem como formas ligeiramente irregulares
+            if asteroid['size'] > 0.08:
+                # Asteróide maior - forma ligeiramente irregular
+                for i in range(8):
+                    angle_offset = asteroid['rotation'] + i * math.pi / 4
+                    radius_var = asteroid['size'] * (0.8 + 0.4 * math.sin(angle_offset * 3))
+                    px = x + radius_var * math.cos(angle_offset)
+                    py = y + radius_var * math.sin(angle_offset)
+                    DrawUtils.circle(px, py, asteroid['size'] * 0.3, True, 8)
+            else:
+                # Asteróide pequeno - ponto simples
+                DrawUtils.circle(x, y, asteroid['size'], True, 6)
