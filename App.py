@@ -6,7 +6,7 @@ from OpenGL.GLUT import *
 from OpenGL.GLU import *
 from OpenGL.GL import *
 
-from Objects import create_planets, create_star, create_entities_for_animation, BackgroundStars
+from models import create_planets, create_star, create_entities_for_animation, BackgroundStars, CometSystem, MeteorShower
 from Player import PlayerSystem, Ponto
 from Animation import Animation 
 from CollisionSystem import CollisionSystem
@@ -24,7 +24,7 @@ class App:
             self.panY -= pan_step
         glutPostRedisplay()
     def __init__(self):
-        self.base_viewport = (-100.0, 100.0, -80.0, 80.0)  # Viewport expandido para as novas distâncias
+        self.base_viewport = (-120.0, 120.0, -96.0, 96.0)  # Viewport expandido para Sol maior e todos os planetas
         self.panX = self.panY = 0.0
         self.zoom_factor = 1.0  # Fator de zoom
         
@@ -36,16 +36,20 @@ class App:
         self.create_solar_system()
         
         # Estrelas de fundo cobrindo todo o universo
-        self.background_stars = BackgroundStars(count=800, seed=42)
+        self.background_stars = BackgroundStars(count=150, seed=42)
+        
+        # Sistemas de cometas e meteoros
+        self.comet_system = CometSystem()
+        self.meteor_shower = MeteorShower()
         
         # Estrelas móveis com aparição aleatória
         self.moving_stars = []
-        self.max_stars = 20
+        self.max_stars = 5
         self.star_spawn_timer = 0.0
         self.star_spawn_interval = random.uniform(0.5, 2.0)
         
         # Criar algumas estrelas iniciais
-        for i in range(3):
+        for i in range(2):
             self.spawn_new_star()
 
     def render(self):
@@ -69,8 +73,14 @@ class App:
         # Desenhar órbitas dos planetas (linhas sutis)
         self.draw_orbits()
         
-        # Desenhar cinturão de asteróides (atrás dos planetas)
-        self.asteroid_belt.draw()
+        # Desenhar bordas dos cinturões (muito sutil)
+        self.asteroid_belts.draw_belt_boundaries()
+        
+        # Desenhar cinturões de asteróides (atrás dos planetas)
+        self.asteroid_belts.draw()
+        
+        # Desenhar cometas (atrás dos planetas, mas na frente do cinturão)
+        self.comet_system.draw()
         
         # Desenhar sol
         self.sun.draw()
@@ -79,6 +89,9 @@ class App:
         if self.show_planets:
             for planet in self.planets:
                 planet.draw()
+        
+        # Desenhar meteoros (na frente dos planetas)
+        self.meteor_shower.draw()
         
         # Desenhar estrelas móveis
         for star in self.moving_stars:
@@ -96,8 +109,12 @@ class App:
         # Atualizar sol
         self.sun.update(delta_time)
         
-        # Atualizar cinturão de asteróides
-        self.asteroid_belt.update(delta_time)
+        # Atualizar sistemas de cometas e meteoros
+        self.comet_system.update(delta_time)
+        self.meteor_shower.update(delta_time)
+        
+        # Atualizar cinturões de asteróides
+        self.asteroid_belts.update(delta_time)
         
         # Atualizar movimento orbital dos planetas
         for planet in self.planets:
@@ -119,7 +136,7 @@ class App:
         for i, star in enumerate(self.moving_stars):
             star.update(delta_time)
             # Remover estrelas que saíram muito longe da tela
-            if (star.x > 50 or star.x < -50 or star.y > 40 or star.y < -40):
+            if (star.x > 150 or star.x < -150 or star.y > 120 or star.y < -120):
                 stars_to_remove.append(i)
         
         # Remover estrelas que saíram da tela
@@ -129,9 +146,9 @@ class App:
         glutPostRedisplay()
     
     def create_solar_system(self):
-        from Objects import Planet, COLORS, FireSun, AsteroidBelt
-        # Sol realista com efeitos de fogo
-        self.sun = FireSun(0, 0, 3.5)
+        from models import Planet, COLORS, FireSun, MultipleAsteroidBelts
+        # Sol realista com efeitos de fogo - ainda maior
+        self.sun = FireSun(0, 0, 7.0)
         
         # Configuração dos planetas com distâncias adequadas para visualização
         # (nome, distância_orbital, velocidade_orbital, tamanho_relativo_ao_sol)
@@ -155,8 +172,8 @@ class App:
             planet.orbital_angle = random.uniform(0, 2 * math.pi)
             self.planets.append(planet)
         
-        # Cinturão de asteróides entre Marte (28) e Júpiter (38)
-        self.asteroid_belt = AsteroidBelt(inner_radius=30, outer_radius=36, count=150)
+        # Múltiplos cinturões de asteróides em diferentes localizações
+        self.asteroid_belts = MultipleAsteroidBelts()
     
     def draw_orbits(self):
         """Desenha as órbitas dos planetas como círculos sutis"""
@@ -175,10 +192,7 @@ class App:
             # Desenhar órbita como círculo vazado (apenas contorno)
             DrawUtils.circle(0, 0, planet.orbital_distance, False, 128)
         
-        # Desenhar órbitas do cinturão de asteróides
-        DrawUtils.set_color(0.5, 0.4, 0.3, 0.15)  # Cor levemente amarronzada
-        DrawUtils.circle(0, 0, 30, False, 64)  # Borda interna
-        DrawUtils.circle(0, 0, 36, False, 64)  # Borda externa
+        # As bordas dos cinturões de asteróides são desenhadas pelo próprio sistema MultipleAsteroidBelts
 
     def spawn_new_star(self):
         """Cria uma nova estrela em uma posição aleatória fora da tela com trajetória específica"""
@@ -186,23 +200,23 @@ class App:
         side = random.randint(0, 3)
         
         if side == 0:  # esquerda
-            start_x, start_y = -40, random.uniform(-30, 30)
+            start_x, start_y = -140, random.uniform(-100, 100)
             # Trajetória para a direita com variação
             angle = random.uniform(-math.pi/4, math.pi/4)  # -45° a +45°
         elif side == 1:  # direita
-            start_x, start_y = 40, random.uniform(-30, 30)
+            start_x, start_y = 140, random.uniform(-100, 100)
             # Trajetória para a esquerda com variação
             angle = random.uniform(3*math.pi/4, 5*math.pi/4)  # 135° a 225°
         elif side == 2:  # cima
-            start_x, start_y = random.uniform(-35, 35), 35
+            start_x, start_y = random.uniform(-120, 120), 110
             # Trajetória para baixo com variação
             angle = random.uniform(5*math.pi/4, 7*math.pi/4)  # 225° a 315°
         else:  # baixo
-            start_x, start_y = random.uniform(-35, 35), -35
+            start_x, start_y = random.uniform(-120, 120), -110
             # Trajetória para cima com variação
             angle = random.uniform(math.pi/4, 3*math.pi/4)  # 45° a 135°
         
-        speed = random.uniform(3.0, 6.0)
+        speed = random.uniform(8.0, 15.0)
         vx = math.cos(angle) * speed
         vy = math.sin(angle) * speed
         
