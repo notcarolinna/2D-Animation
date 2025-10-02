@@ -10,7 +10,7 @@ from .estrela import Star, create_star
 from .planetas import Planet, create_planets, COLORS, PLANET_CONFIGS, PLANET_DRAWERS
 
 # Background
-from .background import BackgroundStars, Nebula, CosmicDust
+from .background import BackgroundStars, Nebula, CosmicBackground
 
 # Cometas e meteoros
 from .cometa import Comet, Meteor, CometSystem, MeteorShower, create_comet

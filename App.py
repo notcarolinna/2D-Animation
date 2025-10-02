@@ -6,7 +6,7 @@ from OpenGL.GLUT import *
 from OpenGL.GLU import *
 from OpenGL.GL import *
 
-from models import create_planets, create_star, create_entities_for_animation, BackgroundStars, CometSystem, MeteorShower
+from models import create_planets, create_star, create_entities_for_animation, CosmicBackground, CometSystem, MeteorShower
 from Player import PlayerSystem, Ponto
 from Animation import Animation 
 from CollisionSystem import CollisionSystem
@@ -35,8 +35,8 @@ class App:
         # Criar sistema solar real
         self.create_solar_system()
         
-        # Estrelas de fundo cobrindo todo o universo
-        self.background_stars = BackgroundStars(count=150, seed=42)
+        # Fundo cósmico completo com galáxias, nebulosas, pulsares e muito mais
+        self.cosmic_background = CosmicBackground()
         
         # Sistemas de cometas e meteoros
         self.comet_system = CometSystem()
@@ -68,7 +68,8 @@ class App:
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         
-        self.background_stars.render(self.tempo_total)
+        # Desenhar fundo cósmico completo
+        self.cosmic_background.draw(self.tempo_total)
         
         # Desenhar órbitas dos planetas (linhas sutis)
         self.draw_orbits()
@@ -105,6 +106,9 @@ class App:
         delta_time = tempo_atual - self.tempo_anterior
         self.tempo_anterior = tempo_atual
         self.tempo_total += delta_time
+        
+        # Atualizar fundo cósmico
+        self.cosmic_background.update(delta_time)
         
         # Atualizar sol
         self.sun.update(delta_time)
